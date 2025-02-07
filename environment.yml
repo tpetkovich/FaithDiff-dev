@@ -122,6 +122,7 @@ dependencies:
       - datasets==3.2.0
       - decorator==5.1.1
       - deepspeed==0.15.1
+      - diffusers==0.28.0
       - dill==0.3.8
       - distlib==0.3.9
       - einops==0.7.0
