@@ -27,7 +27,7 @@ conda env create --name faithdiff -f environment.yml
 ```
 
 #### Download Dependent Models
-- [FaithDiff Pre=trained model](https://huggingface.co/jychen9811/FaithDiff)
+- [FaithDiff Pre-trained model](https://huggingface.co/jychen9811/FaithDiff)
 - [SDXL RealVisXL_V4.0](https://huggingface.co/SG161222/RealVisXL_V4.0)
 - [SDXL VAE FP16](https://huggingface.co/madebyollin/sdxl-vae-fp16-fix)
 - [LLaVA CLIP](https://huggingface.co/openai/clip-vit-large-patch14-336)
@@ -35,7 +35,7 @@ conda env create --name faithdiff -f environment.yml
 - Put them in the `./checkpoints` folder and update the corresponding path in CKPT_path.py.
 
 #### Val Dataset
-RealPhoto60: [Google Drive]()
+RealDeg: [Google Drive]()
 
 
 #### Python Script
