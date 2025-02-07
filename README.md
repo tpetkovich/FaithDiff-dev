@@ -35,8 +35,9 @@ conda env create --name faithdiff -f environment.yml
 - Put them in the `./checkpoints` folder and update the corresponding path in CKPT_path.py.
 
 #### Val Dataset
-RealDeg: [Google Drive]()
+RealDeg: [Google Drive](https://drive.google.com/file/d/1B8BaaMjXJ-1TfcTgE9MrAg8ufvaGkndP/view?usp=sharing)
 
+*To evaluate the performance of our method in real-world scenarios, we collect a dataset of 238 images with unknown degradations, consisting of old photographs, social media images, and classic film stills. The category of old photographs includes black-and-white images, faded photographs, and colorized versions. Social media images are uploaded by us to various social media platforms (e.g., WeChat, RedNote, Sina Weibo and Zhihu), undergoing one or multiple rounds of cross-platform processing. The classic film stills are selected from iconic films spanning the 1980s to 2000s, such as The Shawshank Redemption, Harry Potter, and Spider-Man, etc. The images feature diverse content, including people, buildings, animals, and various natural elements. In addition, the shortest side of the image resolution is at least 720 pixels.*
 
 #### Python Script
 ```Shell
@@ -44,7 +45,7 @@ RealDeg: [Google Drive]()
 CUDA_VISIBLE_DEVICES=0,1 python test.py --img_dir='./dataset/RealDeg' --save_dir=./save/RealDeg --load_8bit_llava --upscale=2
 # Scripts that support only one GPU.
 CUDA_VISIBLE_DEVICES=0 python test_generate_caption.py --img_dir='./dataset/RealDeg' --save_dir=./save/RealDeg_caption --load_8bit_llava
-CUDA_VISIBLE_DEVICES=0 python test_wo_llava.py --img_dir='./dataset/RealDeg' --json_dir=./save/RealDeg_caption --save_dir=./save/RealDeg
+CUDA_VISIBLE_DEVICES=0 python test_wo_llava.py --img_dir='./dataset/RealDeg' --json_dir=./save/RealDeg_caption --save_dir=./save/RealDeg --upscale=2
 ```
 
 ---
@@ -62,6 +63,12 @@ CUDA_VISIBLE_DEVICES=0 python test_wo_llava.py --img_dir='./dataset/RealDeg' --j
 ---
 
 ### Contact
-If you have any question, please email `jychen9811@gmail.com`.
+If you have any questions, please feel free to reach me out at `jychen9811@gmail.com`.
 
 ---
+
+### Acknowledgments
+Our project is based on [diffusers](https://github.com/huggingface/diffusers/tree/main), [SUPIR](https://github.com/Fanghua-Yu/SUPIR). Thanks for their awesome works.
+
+
+
