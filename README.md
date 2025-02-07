@@ -68,7 +68,7 @@ If you have any questions, please feel free to reach me out at `jychen9811@gmail
 ---
 
 ### Acknowledgments
-Our project is based on [diffusers](https://github.com/huggingface/diffusers/tree/main), [SUPIR](https://github.com/Fanghua-Yu/SUPIR). Thanks for their awesome works.
+Our project is based on [diffusers](https://github.com/huggingface/diffusers/tree/main) and [SUPIR](https://github.com/Fanghua-Yu/SUPIR). Thanks for their awesome works.
 
 
 
