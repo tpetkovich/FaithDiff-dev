@@ -2,7 +2,7 @@ from .pipelines.pipeline_FaithDiff_tlc import DiffaVA_lr_pipeline
 import torch
 from diffusers import AutoencoderKL
 from .models.unet_2d_condition_w_vae import UNet2DConditionModel as UNet2DConditionModel_vae
-
+from diffusers import AutoencoderKL, DDPMScheduler
 
 
 
@@ -15,15 +15,16 @@ def FaithDiff_pipeline(sdxl_path, VAE_FP16_path, FaithDiff_path):
     unet.denoise_encoder.dtype=torch.float16
     unet.load_state_dict(torch.load(FaithDiff_path), strict=True)
     unet = unet.to(dtype=torch.float16)
-
+    DDPM_scheduler = DDPMScheduler.from_pretrained(sdxl_path, subfolder="scheduler")
     pipe = DiffaVA_lr_pipeline.from_pretrained(
         sdxl_path,
         vae = vae,
         unet=unet,
         add_sample = True,
         denoise_encoder = unet.denoise_encoder,
+        DDPM_scheduler = DDPM_scheduler,
         add_watermarker=False,
-        torch_dtype=torch.float16
+        torch_dtype=torch.float16,
     )
 
 

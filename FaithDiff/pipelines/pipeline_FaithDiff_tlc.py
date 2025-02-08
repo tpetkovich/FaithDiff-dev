@@ -110,7 +110,7 @@ class LocalAttention():
         super().__init__()
         self.kernel_size = kernel_size
         self.overlap = 0.5
-
+        
     def grids_list(self, x):
         b, c, h, w = x.shape
         
@@ -159,6 +159,7 @@ class LocalAttention():
             k1 = h
         if w < k2:
             k2 = w
+        self.tile_weights = self._gaussian_weights(k2, k1)
         num_row = (h - 1) // k1 + 1
         num_col = (w - 1) // k2 + 1
         self.nr = num_row
@@ -190,20 +191,38 @@ class LocalAttention():
         self.idxes = idxes
         return parts
 
+    def _gaussian_weights(self, tile_width, tile_height):
+        """Generates a gaussian mask of weights for tile contributions"""
+        from numpy import pi, exp, sqrt
+        import numpy as np
+
+        latent_width = tile_width
+        latent_height = tile_height
+
+        var = 0.01
+        midpoint = (latent_width - 1) / 2  # -1 because index goes from 0 to latent_width - 1
+        x_probs = [exp(-(x-midpoint)*(x-midpoint)/(latent_width*latent_width)/(2*var)) / sqrt(2*pi*var) for x in range(latent_width)]
+        midpoint = latent_height / 2
+        y_probs = [exp(-(y-midpoint)*(y-midpoint)/(latent_height*latent_height)/(2*var)) / sqrt(2*pi*var) for y in range(latent_height)]
+
+        weights = np.outer(y_probs, x_probs)
+        return torch.tile(torch.tensor(weights, device=torch.device('cuda')), (4, 1, 1))
+
+
     def grids_inverse(self, outs):
         preds = torch.zeros(self.original_size).to(outs.device)
         b, c, h, w = self.original_size
 
-        count_mt = torch.zeros((b, 1, h, w)).to(outs.device)
+        count_mt = torch.zeros((b, 4, h, w)).to(outs.device)
         k1, k2 = self.kernel_size
 
 
         for cnt, each_idx in enumerate(self.idxes):
             i = each_idx['i']
             j = each_idx['j']
-            # print(preds.size(), outs.size())
-            preds[0, :, i:i + k1, j:j + k2] += outs[cnt, :, :, :]
-            count_mt[0, 0, i:i + k1, j:j + k2] += 1.
+
+            preds[0, :, i:i + k1, j:j + k2] += outs[cnt, :, :, :]*self.tile_weights
+            count_mt[0, :, i:i + k1, j:j + k2] += self.tile_weights
 
         del outs
         torch.cuda.empty_cache()
@@ -225,63 +244,7 @@ class LocalAttention():
         out = self.grids_inverse(qkv) # reverse
         return out
 
-def tensor2img(tensor, rgb2bgr=True, out_type=np.uint8, min_max=(0, 1)):
-    """Convert torch Tensors into image numpy arrays.
 
-    After clamping to [min, max], values will be normalized to [0, 1].
-
-    Args:
-        tensor (Tensor or list[Tensor]): Accept shapes:
-            1) 4D mini-batch Tensor of shape (B x 3/1 x H x W);
-            2) 3D Tensor of shape (3/1 x H x W);
-            3) 2D Tensor of shape (H x W).
-            Tensor channel should be in RGB order.
-        rgb2bgr (bool): Whether to change rgb to bgr.
-        out_type (numpy type): output types. If ``np.uint8``, transform outputs
-            to uint8 type with range [0, 255]; otherwise, float type with
-            range [0, 1]. Default: ``np.uint8``.
-        min_max (tuple[int]): min and max values for clamp.
-
-    Returns:
-        (Tensor or list): 3D ndarray of shape (H x W x C) OR 2D ndarray of
-        shape (H x W). The channel order is BGR.
-    """
-    if not (torch.is_tensor(tensor) or (isinstance(tensor, list) and all(torch.is_tensor(t) for t in tensor))):
-        raise TypeError(f'tensor or list of tensors expected, got {type(tensor)}')
-
-    if torch.is_tensor(tensor):
-        tensor = [tensor]
-    result = []
-    for _tensor in tensor:
-        _tensor = _tensor.squeeze(0).float().detach().cpu().clamp_(*min_max)
-        _tensor = (_tensor - min_max[0]) / (min_max[1] - min_max[0])
-
-        n_dim = _tensor.dim()
-        if n_dim == 4:
-            img_np = make_grid(_tensor, nrow=int(math.sqrt(_tensor.size(0))), normalize=False).numpy()
-            img_np = img_np.transpose(1, 2, 0)
-            if rgb2bgr:
-                img_np = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
-        elif n_dim == 3:
-            img_np = _tensor.numpy()
-            img_np = img_np.transpose(1, 2, 0)
-            if img_np.shape[2] == 1:  # gray image
-                img_np = np.squeeze(img_np, axis=2)
-            else:
-                if rgb2bgr:
-                    img_np = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
-        elif n_dim == 2:
-            img_np = _tensor.numpy()
-        else:
-            raise TypeError(f'Only support 4D, 3D or 2D tensor. But received with dimension: {n_dim}')
-        if out_type == np.uint8:
-            # Unlike MATLAB, numpy.unit8() WILL NOT round by default.
-            img_np = (img_np * 255.0).round()
-        img_np = img_np.astype(out_type)
-        result.append(img_np)
-    if len(result) == 1:
-        result = result[0]
-    return result
     
 # Copied from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion.rescale_noise_cfg
 def rescale_noise_cfg(noise_cfg, noise_pred_text, guidance_rescale=0.0):
@@ -438,6 +401,7 @@ class DiffaVA_lr_pipeline(
         tokenizer_2: CLIPTokenizer,
         unet: UNet2DConditionModel,
         scheduler: KarrasDiffusionSchedulers,
+        DDPM_scheduler: DDPMScheduler,
         force_zeros_for_empty_prompt: bool = True,
         add_watermarker: Optional[bool] = None,
     ):
@@ -446,13 +410,14 @@ class DiffaVA_lr_pipeline(
         self.register_modules(
             vae=vae,
             denoise_encoder = denoise_encoder,
-            # image_embedding_proj = image_embedding_proj,
             text_encoder=text_encoder,
             text_encoder_2=text_encoder_2,
             tokenizer=tokenizer,
             tokenizer_2=tokenizer_2,
             unet=unet,
             scheduler=scheduler,
+            DDPM_scheduler = DDPM_scheduler,
+
         )
         self.register_to_config(force_zeros_for_empty_prompt=force_zeros_for_empty_prompt)
         self.vae_scale_factor = 2 ** (len(self.vae.config.block_out_channels) - 1)
@@ -1035,7 +1000,7 @@ class DiffaVA_lr_pipeline(
             #     image = image.float()
             #     self.upcast_vae()
             
-            # print(image.dtype)
+
             image_latents = self.denoise_encoder(image)
 
             # cast back to fp16 if needed
@@ -1085,7 +1050,6 @@ class DiffaVA_lr_pipeline(
         width: Optional[int] = None,
         num_inference_steps: int = 50,
         start_point: Optional[str] = "noise",
-        schedule_path: Optional[str] = "sdxl",
         timesteps: List[int] = None,
         denoising_end: Optional[float] = None,
         overlap: float = 0.5,
@@ -1309,16 +1273,9 @@ class DiffaVA_lr_pipeline(
         self._denoising_end = denoising_end
         self._interrupt = False
 
-        self.tcl_vae_latents = LocalAttention((target_size[0] // 8,target_size[1]// 8), overlap)
+        self.tlc_vae_latents = LocalAttention((target_size[0] // 8,target_size[1]// 8), overlap)
 
-        self.tcl_vae_img = LocalAttention((target_size[0]// 8,target_size[1]// 8), overlap)
-        self.tcl_vit_images = LocalAttention((target_size[0],target_size[1]), overlap)
-
-        hr_img_list = self.tcl_vit_images.grids_list(img2tensor(np.array(lr_img), bgr2rgb=False).unsqueeze(0))
-
-        hr_img_list = [Image.fromarray(tensor2img(lr_img, rgb2bgr= False)) for lr_img in hr_img_list]
-
-        prompt = [prompt for i in range(len(hr_img_list))]
+        self.tlc_vae_img = LocalAttention((target_size[0]// 8,target_size[1]// 8), overlap)
 
         # 2. Define call parameters
         batch_size = 1
@@ -1359,9 +1316,7 @@ class DiffaVA_lr_pipeline(
             device,
             self.do_classifier_free_guidance,)
 
-
-        # print(batch_size, num_images_per_prompt, image_latents.size())
-        image_latents = self.tcl_vae_img.grids(image_latents)
+        image_latents = self.tlc_vae_img.grids(image_latents)
         
         
 
@@ -1380,14 +1335,13 @@ class DiffaVA_lr_pipeline(
             latents,
         )
         if start_point == 'lr':
-            noise_scheduler = DDPMScheduler.from_pretrained(schedule_path, subfolder="scheduler")
             latents_condition_image = self.vae.encode(lr_img*2-1).latent_dist.sample()
             latents_condition_image = latents_condition_image * self.vae.config.scaling_factor
             start_steps_tensor = torch.randint(999, 999+1, (latents.shape[0],), device=latents.device)
             start_steps_tensor = start_steps_tensor.long()
-            latents = noise_scheduler.add_noise(latents_condition_image[0:1, ...], latents, start_steps_tensor)
+            latents = self.DDPM_scheduler.add_noise(latents_condition_image[0:1, ...], latents, start_steps_tensor)
 
-        latents = self.tcl_vae_latents.grids(latents)
+        latents = self.tlc_vae_latents.grids(latents)
         # 6. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
         extra_step_kwargs = self.prepare_extra_step_kwargs(generator, eta)
 
@@ -1403,8 +1357,8 @@ class DiffaVA_lr_pipeline(
 
 
         if self.do_classifier_free_guidance:
-            prompt_embeds = torch.cat([negative_prompt_embeds.unsqueeze(1), prompt_embeds.unsqueeze(1)], dim=1)
-            add_text_embeds = torch.cat([negative_pooled_prompt_embeds.unsqueeze(1), add_text_embeds.unsqueeze(1)], dim=1)
+            prompt_embeds = torch.cat([negative_prompt_embeds, prompt_embeds], dim=0)
+            add_text_embeds = torch.cat([negative_pooled_prompt_embeds, add_text_embeds], dim=0)
         #     add_time_ids = torch.cat([negative_add_time_ids, add_time_ids], dim=0)
 
         prompt_embeds = prompt_embeds.to(device)
@@ -1452,7 +1406,7 @@ class DiffaVA_lr_pipeline(
         with self.progress_bar(total=num_inference_steps) as progress_bar:
             for i, t in enumerate(timesteps):
                 if i >=1 :
-                    latents = self.tcl_vae_latents.grids(latents).to(dtype=latents.dtype)
+                    latents = self.tlc_vae_latents.grids(latents).to(dtype=latents.dtype)
                 if self.interrupt:
                     continue
                 concat_grid = []
@@ -1462,10 +1416,9 @@ class DiffaVA_lr_pipeline(
                     img_sub_latents = image_latents[sub_num, :, :, :].unsqueeze(0)
                     latent_model_input = torch.cat([sub_latents] * 2) if self.do_classifier_free_guidance else sub_latents
                     img_sub_latents = torch.cat([img_sub_latents] * 2) if self.do_classifier_free_guidance else img_sub_latents
-                    # concat latents, image_latents in the channel dimension
                     scaled_latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
-                    pos_height = self.tcl_vae_latents.idxes[sub_num]['i']
-                    pos_width = self.tcl_vae_latents.idxes[sub_num]['j']
+                    pos_height = self.tlc_vae_latents.idxes[sub_num]['i']
+                    pos_width = self.tlc_vae_latents.idxes[sub_num]['j']
                     add_time_ids = [
                         torch.tensor([original_size]),
                         torch.tensor([[pos_height, pos_width]]),
@@ -1475,12 +1428,12 @@ class DiffaVA_lr_pipeline(
                     add_time_ids = add_time_ids.repeat(2, 1).to(dtype=img_sub_latents.dtype)
 
                     # predict the noise residual
-                    added_cond_kwargs = {"text_embeds": add_text_embeds[sub_num, :, :], "time_ids": add_time_ids}
+                    added_cond_kwargs = {"text_embeds": add_text_embeds, "time_ids": add_time_ids}
 
                     noise_pred = self.unet(
                         scaled_latent_model_input,
                         t,
-                        encoder_hidden_states=prompt_embeds[sub_num, :, :, :],
+                        encoder_hidden_states=prompt_embeds,
                         timestep_cond=timestep_cond,
                         cross_attention_kwargs=self.cross_attention_kwargs,
                         input_embedding=img_sub_latents,
@@ -1539,7 +1492,7 @@ class DiffaVA_lr_pipeline(
                 if XLA_AVAILABLE:
                     xm.mark_step()
 
-                latents = self.tcl_vae_latents.grids_inverse(torch.cat(concat_grid, dim=0)).to(sub_latents.dtype)
+                latents = self.tlc_vae_latents.grids_inverse(torch.cat(concat_grid, dim=0)).to(sub_latents.dtype)
 
         if not output_type == "latent":
             # make sure the VAE is in float32 mode, as it overflows in float16
@@ -1552,7 +1505,7 @@ class DiffaVA_lr_pipeline(
                 if torch.backends.mps.is_available():
                     # some platforms (eg. apple mps) misbehave due to a pytorch bug: https://github.com/pytorch/pytorch/pull/99272
                     self.vae = self.vae.to(latents.dtype)
-            # print(latents)
+
             # unscale/denormalize the latents
             # denormalize with the mean and std if available and not None
             has_latents_mean = hasattr(self.vae.config, "latents_mean") and self.vae.config.latents_mean is not None
@@ -1567,8 +1520,7 @@ class DiffaVA_lr_pipeline(
                 latents = latents * latents_std / self.vae.config.scaling_factor + latents_mean
             else:
                 latents = latents / self.vae.config.scaling_factor
-            # print(latents.size())
-            # print(latents.type)
+
             image = self.vae.decode(latents, return_dict=False)[0]
 
             # cast back to fp16 if needed
