@@ -20,8 +20,8 @@
 ---
 
 ### 📷 Real-World Results
-[<img src="figs/nezha.jpg"  height="320px"/>](https://imgsli.com/MzQ3NDQx) [<img src="figs/wukong.jpg" height="320px"/>](https://imgsli.com/MzQ3NDM5)
-[<img src="figs/old_photo.jpg" height="320px"/>](https://imgsli.com/MzQ3NDYx) [<img src="figs/social_media.jpg"  height="320px"/>](https://imgsli.com/MzQ3NDU2)
+[<img src="figs/nezha.jpg" width="480px" height="320px"/>](https://imgsli.com/MzQ3NDQx) [<img src="figs/wukong.jpg" height="320px"/>](https://imgsli.com/MzQ3NDM5)
+[<img src="figs/old_photo.jpg" width="480px" height="320px"/>](https://imgsli.com/MzQ3NDYx) [<img src="figs/social_media.jpg"  height="320px"/>](https://imgsli.com/MzQ3NDU2)
 
 ![realsr](figs/paper_real.jpg)
 
