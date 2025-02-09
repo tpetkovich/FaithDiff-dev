@@ -20,8 +20,8 @@ parser.add_argument("--json_dir", type=str)
 parser.add_argument("--upscale", type=int, default=4)
 parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--min_size", type=int, default=1024)
-parser.add_argument("--tiled_overlap", type=float, default=0.5)
-parser.add_argument("--tiled_size", type=int, default=1024)
+parser.add_argument("--latent_tiled_overlap", type=float, default=0.5)
+parser.add_argument("--latent_tiled_size", type=int, default=1024)
 parser.add_argument("--guidance_scale", type=float, default=5)
 parser.add_argument("--num_inference_steps", type=int, default=20)
 parser.add_argument("--use_tile_vae", action='store_true', default=False)
@@ -80,7 +80,7 @@ for file_name in sorted(os.listdir(args.img_dir)):
     prompt_init = text 
     negative_prompt_init = ""
     generator = torch.Generator(device='cuda').manual_seed(args.seed)
-    gen_image = pipe(lr_img=input_image, prompt = prompt_init, negative_prompt = negative_prompt_init, num_inference_steps=args.num_inference_steps, guidance_scale=args.guidance_scale, generator=generator, start_point=args.start_point, height = height_now, width=width_now, overlap=args.tiled_overlap, target_size=(args.tiled_size, args.tiled_size)).images[0]
+    gen_image = pipe(lr_img=input_image, prompt = prompt_init, negative_prompt = negative_prompt_init, num_inference_steps=args.num_inference_steps, guidance_scale=args.guidance_scale, generator=generator, start_point=args.start_point, height = height_now, width=width_now, overlap=args.latent_tiled_overlap, target_size=(args.latent_tiled_size, args.latent_tiled_size)).images[0]
     path = os.path.join(args.save_dir, img_name+'.png')
     cropped_image = gen_image.crop((0, 0, width_init, height_init))
 
