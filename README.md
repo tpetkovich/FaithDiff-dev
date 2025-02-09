@@ -8,7 +8,7 @@
 ---
 
 ### 🚩 **New Features/Updates**
-- ✅ February 09, 2025. Support ultra-high-resolution (8K and above) image restoration on 24GB GPUs..
+- ✅ February 09, 2025. Support ultra-high-resolution (8K and above) image restoration on 24GB GPUs.
 - ✅ February 07, 2025. Release the testing code and [pre-trained model](https://huggingface.co/jychen9811/FaithDiff).
 - ✅ November 25, 2024. Creat the repository and the [project page](https://jychen9811.github.io/FaithDiff_page/).
 
