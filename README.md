@@ -28,8 +28,8 @@
 ---
 
 ### 🌈 AIGC Results
-[<img src="figs/pikaqiu.jpg" height="280px"/>](https://imgsli.com/MzQ3NjEz)[<img src="figs/tiger.jpg" height="280px"/>](https://imgsli.com/MzQ3NjA0)[<img src="figs/cat_and_snake.jpg" height="280px"/>](https://imgsli.com/MzQ3NjAx)[<img src="figs/duolaameng.jpg" height="280px"/>](https://imgsli.com/MzQ3NTk2)
-[<img src="figs/little_girl.jpg" height="280px"/>](https://imgsli.com/MzQ3NjA2)[<img src="figs/boy.jpg" height="280px"/>](https://imgsli.com/MzQ3NjE1)[<img src="figs/girl_and_cat.jpg" height="280px"/>](https://imgsli.com/MzQ3NjA5)[<img src="figs/astronaut.jpg" height="280px"/>](https://imgsli.com/MzQ3NjEw)
+[<img src="figs/pikaqiu.jpg" height="250px"/>](https://imgsli.com/MzQ3NjEz)[<img src="figs/tiger.jpg" height="250px"/>](https://imgsli.com/MzQ3NjA0)[<img src="figs/cat_and_snake.jpg" height="250px"/>](https://imgsli.com/MzQ3NjAx)[<img src="figs/duolaameng.jpg" height="250px"/>](https://imgsli.com/MzQ3NTk2)
+[<img src="figs/little_girl.jpg" height="250px"/>](https://imgsli.com/MzQ3NjA2)[<img src="figs/boy.jpg" height="250px"/>](https://imgsli.com/MzQ3NjE1)[<img src="figs/girl_and_cat.jpg" height="250px"/>](https://imgsli.com/MzQ3NjA5)[<img src="figs/astronaut.jpg" height="250px"/>](https://imgsli.com/MzQ3NjEw)
 
 ### 🚀 How to evaluate
 
