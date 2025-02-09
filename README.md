@@ -23,12 +23,12 @@
 [<img src="figs/nezha.jpg" width="500px" height="320px"/>](https://imgsli.com/MzQ3NDQx) [<img src="figs/wukong.jpg" height="320px"/>](https://imgsli.com/MzQ3NDM5)
 [<img src="figs/old_photo.jpg" width="500px" height="320px"/>](https://imgsli.com/MzQ3NDYx) [<img src="figs/social_media.jpg"  height="320px"/>](https://imgsli.com/MzQ3NDU2)
 
-![realsr](figs/paper_real.jpg)
+<!-- ![realsr](figs/paper_real.jpg) -->
 
 ---
 
 ### 🌈 AIGC Results
-[<img src="figs/pikaqiu.jpg" height="250px"/>](https://imgsli.com/MzQ3NjEz)[<img src="figs/tiger.jpg" height="250px"/>](https://imgsli.com/MzQ3NjA0)[<img src="figs/cat_and_snake.jpg" height="250px"/>](https://imgsli.com/MzQ3NjAx)[<img src="figs/duolaameng.jpg" height="250px"/>](https://imgsli.com/MzQ3NTk2)
+[<img src="figs/pikaqiu.jpg" height="250px"/>](https://imgsli.com/MzQ3NjEz)[<img src="figs/cat_and_snake.jpg" height="250px"/>](https://imgsli.com/MzQ3NjAx)[<img src="figs/yangtuo.jpg" height="250"/>](https://imgsli.com/MzQ3NTk0)[<img src="figs/duolaameng.jpg" height="250px"/>](https://imgsli.com/MzQ3NTk2)[<img src="figs/tiger.jpg" height="250px"/>](https://imgsli.com/MzQ3NjA0)
 [<img src="figs/little_girl.jpg" height="250px"/>](https://imgsli.com/MzQ3NjA2)[<img src="figs/boy.jpg" height="250px"/>](https://imgsli.com/MzQ3NjE1)[<img src="figs/girl_and_cat.jpg" height="250px"/>](https://imgsli.com/MzQ3NjA5)[<img src="figs/astronaut.jpg" height="250px"/>](https://imgsli.com/MzQ3NjEw)
 
 ### 🚀 How to evaluate
