@@ -20,9 +20,14 @@
 ---
 
 ### 📷 Real-World Results
-[<img src="figs/nezha.jpg" height="320px"/>](https://imgsli.com/MzQ3NDQx) [<img src="figs/wukong.jpg" height="320px"/>](https://imgsli.com/MzQ3NDM5)
-[<img src="figs/old_photo.jpg" height="320px"/>](https://imgsli.com/MzQ3NDYx) [<img src="figs/social_media.jpg" height="320px"/>](https://imgsli.com/MzQ3NDU2) 
-
+<!-- <p align="center"> -->
+<p align="center">
+[<img src="figs/nezha.jpg"  height="320px"/>](https://imgsli.com/MzQ3NDQx) [<img src="figs/wukong.jpg" height="320px"/>](https://imgsli.com/MzQ3NDM5)
+</p>
+<p align="center">
+[<img src="figs/old_photo.jpg" height="320px"/>](https://imgsli.com/MzQ3NDYx) [<img src="figs/social_media.jpg"  height="320px"/>](https://imgsli.com/MzQ3NDU2)
+</p> 
+<!-- </p> -->
 
 <p align="center">
   <img width="800" src="figs/paper_real.jpg">
@@ -83,7 +88,7 @@ If you have any questions, please feel free to reach me out at `jychen9811@gmail
 ---
 
 ### Acknowledgments
-Our project is based on [diffusers](https://github.com/huggingface/diffusers/tree/main) and [SUPIR](https://github.com/Fanghua-Yu/SUPIR). Thanks for their awesome works.
+Our project is based on [diffusers](https://github.com/huggingface/diffusers/tree/main), [SUPIR](https://github.com/Fanghua-Yu/SUPIR) and [TLC](https://github.com/megvii-research/TLC). Thanks for their awesome works.
 
 
 
