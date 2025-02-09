@@ -20,10 +20,8 @@
 ---
 
 ### 📷 Real-World Results
-<!-- <p align="center"> -->
 [<img src="figs/nezha.jpg"  height="320px"/>](https://imgsli.com/MzQ3NDQx) [<img src="figs/wukong.jpg" height="320px"/>](https://imgsli.com/MzQ3NDM5)
 [<img src="figs/old_photo.jpg" height="320px"/>](https://imgsli.com/MzQ3NDYx) [<img src="figs/social_media.jpg"  height="320px"/>](https://imgsli.com/MzQ3NDU2)
-<!-- </p> -->
 
 <p align="center">
   <img width="800" src="figs/paper_real.jpg">
