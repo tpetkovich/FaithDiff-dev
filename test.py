@@ -31,12 +31,14 @@ parser.add_argument("--save_dir", type=str)
 parser.add_argument("--upscale", type=int, default=1)
 parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--min_size", type=int, default=1024)
-parser.add_argument("--tiled_overlap", type=float, default=0.5)
-parser.add_argument("--tiled_size", type=int, default=1024)
+parser.add_argument("--latent_tiled_overlap", type=float, default=0.5)
+parser.add_argument("--latent_tiled_size", type=int, default=1024)
 parser.add_argument("--guidance_scale", type=float, default=5)
 parser.add_argument("--num_inference_steps", type=int, default=20)
 parser.add_argument("--no_llava", action='store_true', default=False)
 parser.add_argument("--use_tile_vae", action='store_true', default=False)
+parser.add_argument("--vae_tiled_overlap", type=float, default=0.25)
+parser.add_argument("--vae_tiled_size", type=int, default=1024)
 parser.add_argument("--load_8bit_llava", action='store_true', default=False)
 parser.add_argument("--color_fix", type=str, choices=['wavelet', 'adain', 'nofix'], default='adain')
 parser.add_argument("--start_point", type=str, choices=['lr', 'noise'], default='lr')
@@ -47,7 +49,13 @@ use_llava = not args.no_llava
 # load FaithDiff FP16
 pipe = FaithDiff_pipeline(sdxl_path=SDXL_PATH, VAE_FP16_path=VAE_FP16_PATH, FaithDiff_path=FAITHDIFF_PATH)
 pipe = pipe.to(Diffusion_device)
+
 if args.use_tile_vae:
+    pipe.denoise_encoder.tile_sample_min_size=args.vae_tiled_size
+    pipe.denoise_encoder.tile_overlap_factor=args.vae_tiled_overlap
+    pipe.denoise_encoder.enable_tiling()
+    pipe.vae.config.sample_size=args.vae_tiled_size
+    pipe.vae.tile_overlap_factor = args.vae_tiled_overlap
     pipe.vae.enable_tiling()
 
 # load LLaVA
@@ -90,12 +98,12 @@ with torch.no_grad():
         w, h = image.size
         w *= args.upscale
         h *= args.upscale
-        image = image.resize((w, h))
+        image = image.resize((w, h), Image.LANCZOS)
         input_image, width_init, height_init, width_now, height_now = check_image_size(image)
         prompt_init = text 
         negative_prompt_init = ""
         generator = torch.Generator(device='cuda').manual_seed(args.seed)
-        gen_image = pipe(lr_img=input_image, prompt = prompt_init, negative_prompt = negative_prompt_init, num_inference_steps=args.num_inference_steps, guidance_scale=args.guidance_scale, generator=generator, start_point=args.start_point, height = height_now, width=width_now,  overlap=args.tiled_overlap, target_size=(args.tiled_size, args.tiled_size)).images[0]
+        gen_image = pipe(lr_img=input_image, prompt = prompt_init, negative_prompt = negative_prompt_init, num_inference_steps=args.num_inference_steps, guidance_scale=args.guidance_scale, generator=generator, start_point=args.start_point, height = height_now, width=width_now,  overlap=args.latent_tiled_overlap, target_size=(args.latent_tiled_size, args.latent_tiled_size)).images[0]
         path = os.path.join(args.save_dir, img_name+'.png')
         cropped_image = gen_image.crop((0, 0, width_init, height_init))
         if args.color_fix == 'nofix':
@@ -106,7 +114,5 @@ with torch.no_grad():
             elif args.color_fix == 'adain':
                 out_image = adain_color_fix(cropped_image, image)
         out_image.save(path)
-
-
 
 

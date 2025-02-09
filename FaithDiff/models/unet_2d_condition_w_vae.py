@@ -118,6 +118,12 @@ class Encoder(nn.Module):
         self.use_rgb = False
         self.down_block_type = down_block_types
         self.block_out_channels = block_out_channels
+
+        self.tile_sample_min_size = 1024
+        self.tile_latent_min_size = int(self.tile_sample_min_size / 8)
+        self.tile_overlap_factor = 0.25
+        self.use_tiling = False
+        
         # down
         output_channel = block_out_channels[0]
         for i, down_block_type in enumerate(down_block_types):
@@ -162,8 +168,9 @@ class Encoder(nn.Module):
             output_channel = self.block_out_channels[i]
             self.to_rgbs.append(nn.Conv2d(output_channel, 3, kernel_size=3, padding=1))
 
-
-    def forward(self, sample: torch.FloatTensor) -> torch.FloatTensor:
+    def enable_tiling(self):
+        self.use_tiling = True
+    def encode(self, sample: torch.FloatTensor) -> torch.FloatTensor:
         r"""The forward method of the `Encoder` class."""
 
         sample = self.conv_in(sample)
@@ -235,6 +242,74 @@ class Encoder(nn.Module):
             sample = self.mid_block(sample)
 
             return sample
+
+
+    def blend_v(self, a: torch.Tensor, b: torch.Tensor, blend_extent: int) -> torch.Tensor:
+        blend_extent = min(a.shape[2], b.shape[2], blend_extent)
+        for y in range(blend_extent):
+            b[:, :, y, :] = a[:, :, -blend_extent + y, :] * (1 - y / blend_extent) + b[:, :, y, :] * (y / blend_extent)
+        return b
+
+    def blend_h(self, a: torch.Tensor, b: torch.Tensor, blend_extent: int) -> torch.Tensor:
+        blend_extent = min(a.shape[3], b.shape[3], blend_extent)
+        for x in range(blend_extent):
+            b[:, :, :, x] = a[:, :, :, -blend_extent + x] * (1 - x / blend_extent) + b[:, :, :, x] * (x / blend_extent)
+        return b
+
+    def tiled_encode(self, x: torch.FloatTensor) -> torch.FloatTensor:
+        r"""Encode a batch of images using a tiled encoder.
+
+        When this option is enabled, the VAE will split the input tensor into tiles to compute encoding in several
+        steps. This is useful to keep memory use constant regardless of image size. The end result of tiled encoding is
+        different from non-tiled encoding because each tile uses a different encoder. To avoid tiling artifacts, the
+        tiles overlap and are blended together to form a smooth output. You may still see tile-sized changes in the
+        output, but they should be much less noticeable.
+
+        Args:
+            x (`torch.FloatTensor`): Input batch of images.
+            return_dict (`bool`, *optional*, defaults to `True`):
+                Whether or not to return a [`~models.autoencoder_kl.AutoencoderKLOutput`] instead of a plain tuple.
+
+        Returns:
+            [`~models.autoencoder_kl.AutoencoderKLOutput`] or `tuple`:
+                If return_dict is True, a [`~models.autoencoder_kl.AutoencoderKLOutput`] is returned, otherwise a plain
+                `tuple` is returned.
+        """
+        overlap_size = int(self.tile_sample_min_size * (1 - self.tile_overlap_factor))
+        blend_extent = int(self.tile_latent_min_size * self.tile_overlap_factor)
+        row_limit = self.tile_latent_min_size - blend_extent
+
+        # Split the image into 512x512 tiles and encode them separately.
+        rows = []
+        for i in range(0, x.shape[2], overlap_size):
+            row = []
+            for j in range(0, x.shape[3], overlap_size):
+                tile = x[:, :, i : i + self.tile_sample_min_size, j : j + self.tile_sample_min_size]
+                tile = self.encode(tile)
+                row.append(tile)
+            rows.append(row)
+        result_rows = []
+        for i, row in enumerate(rows):
+            result_row = []
+            for j, tile in enumerate(row):
+                # blend the above tile and the left tile
+                # to the current tile and add the current tile to the result row
+                if i > 0:
+                    tile = self.blend_v(rows[i - 1][j], tile, blend_extent)
+                if j > 0:
+                    tile = self.blend_h(row[j - 1], tile, blend_extent)
+                result_row.append(tile[:, :, :row_limit, :row_limit])
+            result_rows.append(torch.cat(result_row, dim=3))
+
+        moments = torch.cat(result_rows, dim=2)
+
+        return moments
+    def forward(self, sample: torch.FloatTensor) -> torch.FloatTensor:      
+        if self.use_tiling and (sample.shape[-1] > self.tile_latent_min_size or sample.shape[-2] > self.tile_latent_min_size):
+            return self.tiled_encode(sample)
+        
+        return self.encode(sample)
+
 class Gate_ControlNetConditioningEmbedding(nn.Module):
     """
     Quoting from https://arxiv.org/abs/2302.05543: "Stable Diffusion uses a pre-processing method similar to VQ-GAN
