@@ -19,7 +19,7 @@
 
 ---
 
-### 📷 Real-World Results
+### 📷 Real-World Enhancement Results
 [<img src="figs/nezha.jpg" width="500px" height="320px"/>](https://imgsli.com/MzQ3NDQx) [<img src="figs/wukong.jpg" height="320px"/>](https://imgsli.com/MzQ3NDM5)
 [<img src="figs/old_photo.jpg" width="500px" height="320px"/>](https://imgsli.com/MzQ3NDYx) [<img src="figs/social_media.jpg"  height="320px"/>](https://imgsli.com/MzQ3NDU2)
 
@@ -27,7 +27,7 @@
 
 ---
 
-### 🌈 AIGC Results
+### 🌈 AIGC Enhancement Results
 [<img src="figs/pikaqiu.jpg" width="270px" height="270px"/>](https://imgsli.com/MzQ3NjEz)
 [<img src="figs/cat_and_snake.jpg" width="270px" height="270px"/>](https://imgsli.com/MzQ3NjAx)
 [<img src="figs/yangtuo.jpg" width="270px" height="270px"/>](https://imgsli.com/MzQ3NTk0)
@@ -57,8 +57,7 @@ conda env create --name faithdiff -f environment.yml
 RealDeg: [Google Drive](https://drive.google.com/file/d/1B8BaaMjXJ-1TfcTgE9MrAg8ufvaGkndP/view?usp=sharing)
 
 *To evaluate the performance of our method in real-world scenarios, we collect a dataset of 238 images with unknown degradations, consisting of old photographs, social media images, and classic film stills. The category of old photographs includes black-and-white images, faded photographs, and colorized versions. Social media images are uploaded by us to various social media platforms (e.g., WeChat, RedNote, Sina Weibo and Zhihu), undergoing one or multiple rounds of cross-platform processing. The classic film stills are selected from iconic films spanning the 1980s to 2000s, such as The Shawshank Redemption, Harry Potter, and Spider-Man, etc. The images feature diverse content, including people, buildings, animals, and various natural elements. In addition, the shortest side of the image resolution is at least 720 pixels.*
-parser.add_argument("--guidance_scale", type=float, default=5)
-parser.add_argument("--num_inference_steps", type=int, default=20)
+
 #### Python Script
 ```Shell
 # Script that support two GPUs. 
