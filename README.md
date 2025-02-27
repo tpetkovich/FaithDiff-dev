@@ -13,7 +13,7 @@
 - ✅ November 25, 2024. Creat the repository and the [project page](https://jychen9811.github.io/FaithDiff_page/).
 
 ### ⚡ **To do**
-- FaithDiff-Flux
+- FaithDiff-SD3-Large
 - Release the training code
 - ~~Release the testing code and pre-trained model~~
 
