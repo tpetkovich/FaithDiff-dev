@@ -1,4 +1,4 @@
-### FaithDiff: Unleashing Diffusion Priors for Faithful Image Super-resolution (CVPR2025)
+### (CVPR 2025) FaithDiff: Unleashing Diffusion Priors for Faithful Image Super-resolution 
 > [[Project Page](https://jychen9811.github.io/FaithDiff_page/)]  &emsp; [[Paper](https://arxiv.org/abs/2411.18824)]
 
 > [Junyang Chen](https://jychen9811.github.io/), [Jinshan Pan](https://jspan.github.io/), [Jiangxin Dong](https://scholar.google.com/citations?user=ruebFVEAAAAJ&hl=zh-CN&oi=ao) <br>
