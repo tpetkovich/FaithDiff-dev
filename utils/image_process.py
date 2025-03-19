@@ -1,6 +1,7 @@
 from PIL import Image
 import cv2
 import numpy as np
+import torch
 def check_image_size(x, padder_size=8):
     # 获取图像的宽高
     width, height = x.size
@@ -16,3 +17,16 @@ def check_image_size(x, padder_size=8):
     # x = x.resize((width + mod_pad_w, height + mod_pad_h))
     
     return x, width, height, width + mod_pad_w, height + mod_pad_h
+
+
+def image2tensor(img):
+    if img.ndim == 2:
+        img = np.expand_dims(img, axis=2)
+    return torch.from_numpy(np.ascontiguousarray(img)).permute(2, 0, 1).float().div(255.).unsqueeze(0)
+
+
+def tensor2image(img):
+    img = img.data.squeeze().float().clamp_(0, 1).cpu().numpy()
+    if img.ndim == 3:
+        img = np.transpose(img, (1, 2, 0))
+    return np.uint8((img*255.0).round())

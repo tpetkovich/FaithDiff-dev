@@ -9,6 +9,7 @@
 
 ### 🚩 **New Features/Updates**
 - ✅ February 09, 2025. Support ultra-high-resolution (8K and above) image restoration on 24GB GPUs.
+- ✅ February 08, 2025. Release [RealDeg](https://drive.google.com/file/d/1B8BaaMjXJ-1TfcTgE9MrAg8ufvaGkndP/view?usp=sharing). It includes 238 images with unknown degradations, consisting of old photographs, social media images, and classic film stills.
 - ✅ February 07, 2025. Release the testing code and [pre-trained model](https://huggingface.co/jychen9811/FaithDiff).
 - ✅ November 25, 2024. Creat the repository and the [project page](https://jychen9811.github.io/FaithDiff_page/).
 
@@ -51,6 +52,7 @@ conda env create --name faithdiff -f environment.yml
 - [SDXL VAE FP16](https://huggingface.co/madebyollin/sdxl-vae-fp16-fix)
 - [LLaVA CLIP](https://huggingface.co/openai/clip-vit-large-patch14-336)
 - [LLaVA v1.5 13B](https://huggingface.co/liuhaotian/llava-v1.5-13b)
+- [BSRNet](https://drive.usercontent.google.com/download?id=1JGJLiENPkOqi39bvQYa_jlIPlMk24iKH&export=download&authuser=0&confirm=t&uuid=ebaa5d11-ac76-4f54-aabf-90fa43997dec&at=AEz70l4zk_8LTafpGtR0ZSE50F1N:1742369984793)
 - Put them in the `./checkpoints` folder and update the corresponding path in CKPT_path.py.
 
 #### Val Dataset
@@ -74,15 +76,12 @@ CUDA_VISIBLE_DEVICES=0,1 python test.py --img_dir='./dataset/RealDeg' --save_dir
 ---
 
 ### BibTeX
-    @article{chen2024faithdiff,
+    @inproceedings{chen2024faithdiff,
     title={FaithDiff: Unleashing Diffusion Priors for Faithful Image Super-resolution},
     author={Chen, Junyang and Pan, Jinshan and Dong, Jiangxin},
-    eprint={2411.18824},
-    archivePrefix={arXiv},
-    primaryClass={cs.CV}
-    year={2024}
+    booktitle={CVPR},
+    year={2025}
     }
-
 ---
 
 ### Contact

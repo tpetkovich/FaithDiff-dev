@@ -3,7 +3,7 @@ import torch
 from diffusers import AutoencoderKL
 from .models.unet_2d_condition_w_vae import UNet2DConditionModel as UNet2DConditionModel_vae
 from diffusers import AutoencoderKL, DDPMScheduler
-
+from .models.bsrnet_arch import RRDBNet as BSRNet
 
 
 def FaithDiff_pipeline(sdxl_path, VAE_FP16_path, FaithDiff_path):
@@ -29,3 +29,9 @@ def FaithDiff_pipeline(sdxl_path, VAE_FP16_path, FaithDiff_path):
 
 
     return pipe
+
+
+def create_bsrnet(bsrnet_path):
+    bsrnet = BSRNet(in_nc=3, out_nc=3, nf=64, nb=23, gc=32, sf=4)
+    bsrnet.load_state_dict(torch.load(bsrnet_path), strict=True)
+    return bsrnet
