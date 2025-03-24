@@ -165,13 +165,13 @@ def log_validation(unet, args, accelerator, weight_dtype, step):
     else:
         generator = torch.Generator(device=accelerator.device).manual_seed(args.seed)
 
-    test_img_list = os.listdir('/hpc/home/hpc2024214007/cjy/diffusers-main/examples/FaithDiff_SD3_code/validation_set/RealPhoto60')[:10]
+    test_img_list = os.listdir('./validation_set/RealPhoto60')[:10]
     img_count = 0
     images = []
     for file_name in test_img_list:
         
-        data = json.load(open(os.path.join('/hpc/home/hpc2024214007/cjy/diffusers-main/examples/FaithDiff_SD3_code/validation_set/RealPhoto60_caption',file_name.split('.')[0]+'.json'))) 
-        lr_image = Image.open(os.path.join('/hpc/home/hpc2024214007/cjy/diffusers-main/examples/FaithDiff_SD3_code/validation_set/RealPhoto60',file_name)).convert('RGB')
+        data = json.load(open(os.path.join('/validation_set/RealPhoto60_caption',file_name.split('.')[0]+'.json'))) 
+        lr_image = Image.open(os.path.join('./validation_set/RealPhoto60',file_name)).convert('RGB')
         init_text = data["caption"]
         words = init_text.split()
         words = words[3:]
