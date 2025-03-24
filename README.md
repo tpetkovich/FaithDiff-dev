@@ -15,7 +15,7 @@
 
 ### ⚡ **To do**
 - FaithDiff-SD3-Large
-- Release the training code
+- ~~Release the training code~~
 - ~~Release the testing code and pre-trained model~~
 
 ---
@@ -60,7 +60,24 @@ RealDeg: [Google Drive](https://drive.google.com/file/d/1B8BaaMjXJ-1TfcTgE9MrAg8
 
 *To evaluate the performance of our method in real-world scenarios, we collect a dataset of 238 images with unknown degradations, consisting of old photographs, social media images, and classic film stills. The category of old photographs includes black-and-white images, faded photographs, and colorized versions. Social media images are uploaded by us to various social media platforms (e.g., WeChat, RedNote, Sina Weibo and Zhihu), undergoing one or multiple rounds of cross-platform processing. The classic film stills are selected from iconic films spanning the 1980s to 2000s, such as The Shawshank Redemption, Harry Potter, and Spider-Man, etc. The images feature diverse content, including people, buildings, animals, and various natural elements. In addition, the shortest side of the image resolution is at least 720 pixels.*
 
-#### Python Script
+#### Training Script
+```Shell
+# Stage 1
+bash train_stage_1.sh
+
+# After Stage 1 training, enter the checkpoints folder.
+cd ./train_FaithDiff_stage_1_offline/checkpoint-6000
+python zero_to_fp32.py ./ ./pretrain.bin
+
+# Stage 2
+bash train_stage_2.sh
+
+# After Stage 2 training, enter the checkpoints folder.
+cd ./train_FaithDiff_stage_1_offline/checkpoint
+python zero_to_fp32.py ./ ./FaithDiff.bin
+```
+
+#### Inference Script
 ```Shell
 # Script that support two GPUs. 
 CUDA_VISIBLE_DEVICES=0,1 python test.py --img_dir='./dataset/RealDeg' --save_dir=./save/RealDeg --upscale=2 --guidance_scale=5 --num_inference_steps=20 --load_8bit_llava 
@@ -90,7 +107,7 @@ If you have any questions, please feel free to reach me out at `jychen9811@gmail
 ---
 
 ### Acknowledgments
-Our project is based on [diffusers](https://github.com/huggingface/diffusers/tree/main), [SUPIR](https://github.com/Fanghua-Yu/SUPIR) and [TLC](https://github.com/megvii-research/TLC). Thanks for their awesome works.
+Our project is based on [diffusers](https://github.com/huggingface/diffusers/tree/main), [SUPIR](https://github.com/Fanghua-Yu/SUPIR), [TLC](https://github.com/megvii-research/TLC) and [SimpleTuner](https://github.com/bghira/SimpleTuner/tree/main). Thanks for their awesome works.
 
 
 
