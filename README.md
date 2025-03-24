@@ -4,10 +4,11 @@
 > [Junyang Chen](https://jychen9811.github.io/), [Jinshan Pan](https://jspan.github.io/), [Jiangxin Dong](https://scholar.google.com/citations?user=ruebFVEAAAAJ&hl=zh-CN&oi=ao) <br>
 > [IMAG Lab](https://imag-njust.net/), Nanjing University of Science and Technology
 
-
+> If FaithDiff is helpful for you, please help star the GitHub Repo. Thanks!
 ---
 
 ### 🚩 **New Features/Updates**
+- ✅ March 24, 2025. Support ultra-high-resolution (8K and above) image restoration on 24GB GPUs.
 - ✅ February 09, 2025. Support ultra-high-resolution (8K and above) image restoration on 24GB GPUs.
 - ✅ February 08, 2025. Release [RealDeg](https://drive.google.com/file/d/1B8BaaMjXJ-1TfcTgE9MrAg8ufvaGkndP/view?usp=sharing). It includes 238 images with unknown degradations, consisting of old photographs, social media images, and classic film stills.
 - ✅ February 07, 2025. Release the testing code and [pre-trained model](https://huggingface.co/jychen9811/FaithDiff).
