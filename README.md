@@ -1,10 +1,10 @@
 ### (CVPR 2025) FaithDiff: Unleashing Diffusion Priors for Faithful Image Super-resolution 
-> [[Project Page](https://jychen9811.github.io/FaithDiff_page/)]  &emsp; [[Paper](https://arxiv.org/abs/2411.18824)]
+> [[Project Page](https://jychen9811.github.io/FaithDiff_page/)]  &emsp; [[Paper](https://arxiv.org/abs/2411.18824)] &emsp; [visitors](https://visitor-badge.laobi.icu/badge?page_id=JyChen9811/FaithDiff)
 
 > [Junyang Chen](https://jychen9811.github.io/), [Jinshan Pan](https://jspan.github.io/), [Jiangxin Dong](https://scholar.google.com/citations?user=ruebFVEAAAAJ&hl=zh-CN&oi=ao) <br>
 > [IMAG Lab](https://imag-njust.net/), Nanjing University of Science and Technology
 
-> If FaithDiff is helpful for you, please help star the GitHub Repo. Thanks!
+> If FaithDiff is helpful for you, please help star the GitHub Repo. Thanks! 
 ---
 
 ### 🚩 **New Features/Updates**
@@ -109,6 +109,4 @@ If you have any questions, please feel free to reach me out at `jychen9811@gmail
 
 ### Acknowledgments
 Our project is based on [diffusers](https://github.com/huggingface/diffusers/tree/main), [SUPIR](https://github.com/Fanghua-Yu/SUPIR), [TLC](https://github.com/megvii-research/TLC) and [SimpleTuner](https://github.com/bghira/SimpleTuner/tree/main). Thanks for their awesome works.
-
-
 
