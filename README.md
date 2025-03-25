@@ -1,5 +1,7 @@
 ### (CVPR 2025) FaithDiff: Unleashing Diffusion Priors for Faithful Image Super-resolution 
-> [[Project Page](https://jychen9811.github.io/FaithDiff_page/)]  &emsp; [[Paper](https://arxiv.org/abs/2411.18824)] &emsp; ![visitors](https://visitor-badge.laobi.icu/badge?page_id=JyChen9811/FaithDiff)
+[![Hugging Face Models](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Models-blue)](https://huggingface.co/jychen9811/FaithDiff)
+![visitors](https://visitor-badge.laobi.icu/badge?page_id=JyChen9811/FaithDiff)
+> [[Project Page](https://jychen9811.github.io/FaithDiff_page/)]  &emsp; [[Paper](https://arxiv.org/abs/2411.18824)]
 
 > [Junyang Chen](https://jychen9811.github.io/), [Jinshan Pan](https://jspan.github.io/), [Jiangxin Dong](https://scholar.google.com/citations?user=ruebFVEAAAAJ&hl=zh-CN&oi=ao) <br>
 > [IMAG Lab](https://imag-njust.net/), Nanjing University of Science and Technology
