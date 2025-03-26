@@ -63,7 +63,7 @@ python zero_to_fp32.py ./ ./pretrain.bin
 bash train_stage_2.sh
 
 # After Stage 2 training, enter the checkpoints folder.
-cd ./train_FaithDiff_stage_1_offline/checkpoint
+cd ./train_FaithDiff_stage_2_offline/checkpoint
 python zero_to_fp32.py ./ ./FaithDiff.bin
 ```
 
