@@ -42,7 +42,7 @@
 [<img src="figs/girl_and_cat.jpg" width="270px" height="270px"/>](https://imgsli.com/MzQ3NjA5)
 [<img src="figs/astronaut.jpg" width="270px" height="270px"/>](https://imgsli.com/MzQ3NjEw)
 
-
+---
 ### :gift: How to train
 
 #### Environment
