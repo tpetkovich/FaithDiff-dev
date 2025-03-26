@@ -93,6 +93,11 @@ CUDA_VISIBLE_DEVICES=0 python test_wo_llava.py --img_dir='./dataset/RealDeg' --j
 CUDA_VISIBLE_DEVICES=0,1 python test.py --img_dir='./dataset/RealDeg' --save_dir=./save/RealDeg --use_tile_vae --upscale=8 --guidance_scale=5 --num_inference_steps=20 --load_8bit_llava 
 ```
 
+
+#### Tips for Human Face data preparation
+- *To quickly filter out low-quality data in the FFHQ dataset, we recommend using topiq to assess image quality. Here are the [official results](https://github.com/chaofengc/IQA-PyTorch/blob/a7f2be4363f3a4c765c6868239336f6eeba33c93/tests/FFHQ_score_topiq_nr-face.csv). We empirically selected images with a metric above 0.72.*
+- *During training, we recommend resizing the image resolution to a range between 768 and 512.*
+- *If you need to improve the restoration performance of portrait images, [Unsplash](https://unsplash.com/) offers high-quality portrait images. You can search for different clothing names to obtain full-body portrait data.*
 ---
 
 ### BibTeX
