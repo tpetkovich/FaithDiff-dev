@@ -42,26 +42,13 @@
 [<img src="figs/girl_and_cat.jpg" width="270px" height="270px"/>](https://imgsli.com/MzQ3NjA5)
 [<img src="figs/astronaut.jpg" width="270px" height="270px"/>](https://imgsli.com/MzQ3NjEw)
 
-### 🚀 How to evaluate
+
+### :gift: How to train
 
 #### Environment
 ```
 conda env create --name faithdiff -f environment.yml
 ```
-
-#### Download Dependent Models
-- [FaithDiff Pre-trained model](https://huggingface.co/jychen9811/FaithDiff)
-- [SDXL RealVisXL_V4.0](https://huggingface.co/SG161222/RealVisXL_V4.0)
-- [SDXL VAE FP16](https://huggingface.co/madebyollin/sdxl-vae-fp16-fix)
-- [LLaVA CLIP](https://huggingface.co/openai/clip-vit-large-patch14-336)
-- [LLaVA v1.5 13B](https://huggingface.co/liuhaotian/llava-v1.5-13b)
-- [BSRNet](https://drive.usercontent.google.com/download?id=1JGJLiENPkOqi39bvQYa_jlIPlMk24iKH&export=download&authuser=0&confirm=t&uuid=ebaa5d11-ac76-4f54-aabf-90fa43997dec&at=AEz70l4zk_8LTafpGtR0ZSE50F1N:1742369984793)
-- Put them in the `./checkpoints` folder and update the corresponding path in CKPT_path.py.
-
-#### Val Dataset
-RealDeg: [Google Drive](https://drive.google.com/file/d/1B8BaaMjXJ-1TfcTgE9MrAg8ufvaGkndP/view?usp=sharing)
-
-*To evaluate the performance of our method in real-world scenarios, we collect a dataset of 238 images with unknown degradations, consisting of old photographs, social media images, and classic film stills. The category of old photographs includes black-and-white images, faded photographs, and colorized versions. Social media images are uploaded by us to various social media platforms (e.g., WeChat, RedNote, Sina Weibo and Zhihu), undergoing one or multiple rounds of cross-platform processing. The classic film stills are selected from iconic films spanning the 1980s to 2000s, such as The Shawshank Redemption, Harry Potter, and Spider-Man, etc. The images feature diverse content, including people, buildings, animals, and various natural elements. In addition, the shortest side of the image resolution is at least 720 pixels.*
 
 #### Training Script
 ```Shell
@@ -80,6 +67,29 @@ cd ./train_FaithDiff_stage_1_offline/checkpoint
 python zero_to_fp32.py ./ ./FaithDiff.bin
 ```
 
+#### Tips for Human Face data preparation
+- *To quickly filter out low-quality data in the FFHQ dataset, we recommend using topiq to assess image quality. Here are the [official results](https://github.com/chaofengc/IQA-PyTorch/blob/a7f2be4363f3a4c765c6868239336f6eeba33c93/tests/FFHQ_score_topiq_nr-face.csv). We empirically selected images with a metric above 0.72.*
+- *During training, we recommend resizing the image resolution to a range between 768 and 512.*
+- *If you need to improve the restoration performance of portrait images, [Unsplash](https://unsplash.com/) offers high-quality portrait images. You can search for different clothing names to obtain full-body portrait data.*
+---
+
+
+### 🚀 How to evaluate
+
+#### Download Dependent Models
+- [FaithDiff Pre-trained model](https://huggingface.co/jychen9811/FaithDiff)
+- [SDXL RealVisXL_V4.0](https://huggingface.co/SG161222/RealVisXL_V4.0)
+- [SDXL VAE FP16](https://huggingface.co/madebyollin/sdxl-vae-fp16-fix)
+- [LLaVA CLIP](https://huggingface.co/openai/clip-vit-large-patch14-336)
+- [LLaVA v1.5 13B](https://huggingface.co/liuhaotian/llava-v1.5-13b)
+- [BSRNet](https://drive.usercontent.google.com/download?id=1JGJLiENPkOqi39bvQYa_jlIPlMk24iKH&export=download&authuser=0&confirm=t&uuid=ebaa5d11-ac76-4f54-aabf-90fa43997dec&at=AEz70l4zk_8LTafpGtR0ZSE50F1N:1742369984793)
+- Put them in the `./checkpoints` folder and update the corresponding path in CKPT_path.py.
+
+#### Val Dataset
+RealDeg: [Google Drive](https://drive.google.com/file/d/1B8BaaMjXJ-1TfcTgE9MrAg8ufvaGkndP/view?usp=sharing)
+
+*To evaluate the performance of our method in real-world scenarios, we collect a dataset of 238 images with unknown degradations, consisting of old photographs, social media images, and classic film stills. The category of old photographs includes black-and-white images, faded photographs, and colorized versions. Social media images are uploaded by us to various social media platforms (e.g., WeChat, RedNote, Sina Weibo and Zhihu), undergoing one or multiple rounds of cross-platform processing. The classic film stills are selected from iconic films spanning the 1980s to 2000s, such as The Shawshank Redemption, Harry Potter, and Spider-Man, etc. The images feature diverse content, including people, buildings, animals, and various natural elements. In addition, the shortest side of the image resolution is at least 720 pixels.*
+
 #### Inference Script
 ```Shell
 # Script that support two GPUs. 
@@ -94,11 +104,7 @@ CUDA_VISIBLE_DEVICES=0,1 python test.py --img_dir='./dataset/RealDeg' --save_dir
 ```
 
 
-#### Tips for Human Face data preparation
-- *To quickly filter out low-quality data in the FFHQ dataset, we recommend using topiq to assess image quality. Here are the [official results](https://github.com/chaofengc/IQA-PyTorch/blob/a7f2be4363f3a4c765c6868239336f6eeba33c93/tests/FFHQ_score_topiq_nr-face.csv). We empirically selected images with a metric above 0.72.*
-- *During training, we recommend resizing the image resolution to a range between 768 and 512.*
-- *If you need to improve the restoration performance of portrait images, [Unsplash](https://unsplash.com/) offers high-quality portrait images. You can search for different clothing names to obtain full-body portrait data.*
----
+
 
 ### BibTeX
     @inproceedings{chen2024faithdiff,
