@@ -1,10 +1,6 @@
 __pycache__/
-FaithDiff/__pycache__/
-FaithDiff/pipelines/__pycache__/
-FaithDiff/models/__pycache__/
-llava/__pycache__/
-utils/__pycache__/
 *.py[cod]
+*$py.class
 /outputs/
 /input/
 checkpoints/
