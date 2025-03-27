@@ -1,6 +1,6 @@
 LLAVA_CLIP_PATH = './checkpoints/CLIP_VIT/'
 LLAVA_MODEL_PATH = './checkpoints/llava_v1.5-13b/llava'
-SDXL_PATH = './checkpoints/Real_4_SDXL/'
+SDXL_PATH = 'SG161222/RealVisXL_V4.0'
 FAITHDIFF_PATH =  './checkpoints/FaithDiff.bin' 
-VAE_FP16_PATH = './checkpoints/VAE_FP16/'
+VAE_FP16_PATH = 'madebyollin/sdxl-vae-fp16-fix'
 BSRNet_PATH = './checkpoints/BSRNet.pth'

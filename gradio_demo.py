@@ -1,6 +1,4 @@
 import gradio as gr
-import os
-import sys
 from typing import List
 
 import numpy as np
