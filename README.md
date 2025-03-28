@@ -10,6 +10,7 @@
 ---
 
 ### 🚩 **New Features/Updates**
+- ✅ March 28, 2025. Update a nice gradio demo.
 - ✅ March 24, 2025. Release the training code.
 - ✅ February 09, 2025. Support ultra-high-resolution (8K and above) image restoration on 24GB GPUs.
 - ✅ February 08, 2025. Release [RealDeg](https://drive.google.com/file/d/1B8BaaMjXJ-1TfcTgE9MrAg8ufvaGkndP/view?usp=sharing). It includes 238 images with unknown degradations, consisting of old photographs, social media images, and classic film stills.
@@ -102,6 +103,13 @@ CUDA_VISIBLE_DEVICES=0 python test_wo_llava.py --img_dir='./dataset/RealDeg' --j
 # If attempting ultra-high-resolution image restoration, add --use_tile_vae in the scripts. The same applies to test_wo_llava.
 CUDA_VISIBLE_DEVICES=0,1 python test.py --img_dir='./dataset/RealDeg' --save_dir=./save/RealDeg --use_tile_vae --upscale=8 --guidance_scale=5 --num_inference_steps=20 --load_8bit_llava 
 ```
+
+#### Gradio Demo
+```
+python gradio_demo.py 
+```
+![faithdiff](examples/gradio_demo.png)
+
 ---
 
 
