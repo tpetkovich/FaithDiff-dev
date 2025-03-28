@@ -44,7 +44,16 @@
 [<img src="figs/astronaut.jpg" width="270px" height="270px"/>](https://imgsli.com/MzQ3NjEw)
 
 ---
-### :gift: How to train
+
+### :gift: Gradio Demo
+```
+python gradio_demo.py 
+```
+![faithdiff](examples/gradio_demo.png)
+
+
+---
+### ⚡ How to train
 
 #### Environment
 ```
@@ -104,11 +113,7 @@ CUDA_VISIBLE_DEVICES=0 python test_wo_llava.py --img_dir='./dataset/RealDeg' --j
 CUDA_VISIBLE_DEVICES=0,1 python test.py --img_dir='./dataset/RealDeg' --save_dir=./save/RealDeg --use_tile_vae --upscale=8 --guidance_scale=5 --num_inference_steps=20 --load_8bit_llava 
 ```
 
-#### Gradio Demo
-```
-python gradio_demo.py 
-```
-![faithdiff](examples/gradio_demo.png)
+
 
 ---
 
