@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*$py.class
+/outputs/
+/input/
+checkpoints/
+/.vs
+.vscode/
+.idea/
+venv/
+.venv/
+*.log
+.DS_Store

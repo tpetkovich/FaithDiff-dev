@@ -7,13 +7,13 @@ from .models.bsrnet_arch import RRDBNet as BSRNet
 
 
 def FaithDiff_pipeline(sdxl_path, VAE_FP16_path, FaithDiff_path):
-    vae = AutoencoderKL.from_pretrained(VAE_FP16_path, subfolder="vae").to(dtype=torch.float16)
-    unet = UNet2DConditionModel_vae.from_pretrained(sdxl_path, subfolder="unet")
+    vae = AutoencoderKL.from_pretrained(VAE_FP16_path).to(dtype=torch.float16)
+    unet = UNet2DConditionModel_vae.from_pretrained(sdxl_path, subfolder="unet", variant="fp16")
     unet.init_vae_encoder()
     unet.init_information_transformer_layes()
     unet.init_ControlNetConditioningEmbedding()
     unet.denoise_encoder.dtype=torch.float16
-    unet.load_state_dict(torch.load(FaithDiff_path), strict=True)
+    unet.load_state_dict(torch.load(FaithDiff_path, weights_only=False), strict=True)
     unet = unet.to(dtype=torch.float16)
     DDPM_scheduler = DDPMScheduler.from_pretrained(sdxl_path, subfolder="scheduler")
     pipe = DiffaVA_lr_pipeline.from_pretrained(
@@ -25,11 +25,10 @@ def FaithDiff_pipeline(sdxl_path, VAE_FP16_path, FaithDiff_path):
         DDPM_scheduler = DDPM_scheduler,
         add_watermarker=False,
         torch_dtype=torch.float16,
+        variant="fp16"
     )
 
-
     return pipe
-
 
 def create_bsrnet(bsrnet_path):
     bsrnet = BSRNet(in_nc=3, out_nc=3, nf=64, nb=23, gc=32, sf=4)
