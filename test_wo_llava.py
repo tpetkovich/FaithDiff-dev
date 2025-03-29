@@ -2,12 +2,10 @@ import torch.cuda
 import argparse
 from FaithDiff.create_FaithDiff_model import FaithDiff_pipeline
 from PIL import Image
-from CKPT_PTH import LLAVA_MODEL_PATH, SDXL_PATH, FAITHDIFF_PATH, VAE_FP16_PATH
+from CKPT_PTH import SDXL_PATH, FAITHDIFF_PATH, VAE_FP16_PATH
 from utils.color_fix import wavelet_color_fix, adain_color_fix
 from utils.image_process import check_image_size
-import numpy as np
 import os
-import cv2
 import json
 
 
@@ -29,23 +27,24 @@ parser.add_argument("--vae_tiled_overlap", type=float, default=0.25)
 parser.add_argument("--vae_tiled_size", type=int, default=1024)
 parser.add_argument("--color_fix", type=str, choices=['wavelet', 'adain', 'nofix'], default='adain')
 parser.add_argument("--start_point", type=str, choices=['lr', 'noise'], default='lr')
+parser.add_argument("--cpu_offload", action='store_true', default=False)
+parser.add_argument("--use_fp8", action='store_true', default=False)
 args = parser.parse_args()
 print(args)
+cpu_offload = args.cpu_offload
+use_fp8 = args.use_fp8
 
 # load FaithDiff FP16
-pipe = FaithDiff_pipeline(sdxl_path=SDXL_PATH, VAE_FP16_path=VAE_FP16_PATH, FaithDiff_path=FAITHDIFF_PATH)
+pipe = FaithDiff_pipeline(sdxl_path=SDXL_PATH, VAE_FP16_path=VAE_FP16_PATH, FaithDiff_path=FAITHDIFF_PATH, use_fp8=use_fp8)
 pipe = pipe.to('cuda:0')
 
 if args.use_tile_vae:
-    pipe.denoise_encoder.tile_sample_min_size=args.vae_tiled_size
-    pipe.denoise_encoder.tile_overlap_factor=args.vae_tiled_overlap
-    pipe.denoise_encoder.enable_tiling()
-    pipe.vae.config.sample_size=args.vae_tiled_size
-    pipe.vae.tile_overlap_factor = args.vae_tiled_overlap
-    pipe.vae.enable_tiling()
+    ### enable_vae_tiling
+    pipe.set_encoder_tile_settings()
+    pipe.enable_vae_tiling()
 
-
-
+if cpu_offload:
+    pipe.enable_model_cpu_offload()
 
 os.makedirs(args.save_dir, exist_ok=True)
 
@@ -53,7 +52,10 @@ exist_file = os.listdir(args.save_dir)
 
 with torch.no_grad():
     for file_name in sorted(os.listdir(args.img_dir)):
-        img_name = os.path.splitext(file_name)[0]
+        img_name, ext = os.path.splitext(file_name)
+        if ext == ".json":
+            continue
+        
         if f"{img_name}.png" in exist_file:
             print(f"{img_name}.png exist")
             continue

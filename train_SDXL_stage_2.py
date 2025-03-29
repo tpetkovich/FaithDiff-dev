@@ -14,36 +14,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # from diffusers.pipelines.DiffaVA_diffusion.modeling_clip import CLIPVisionModelWithProjection as Training_CLIPVisionModelWithProjection
-import random
-import time
 import argparse
 import logging
 import math
 import os
 import shutil
-import warnings
 from pathlib import Path
-from urllib.parse import urlparse
 import yaml
 import accelerate
 import numpy as np
 import PIL
 from collections import OrderedDict
-from os import path as osp
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.checkpoint
 import transformers
-from transformers import AutoTokenizer, PretrainedConfig
-from transformers import CLIPImageProcessor, CLIPTextModel, CLIPTokenizer, CLIPTextModelWithProjection
+from transformers import CLIPTextModel, CLIPTokenizer, CLIPTextModelWithProjection
 
 from accelerate import Accelerator
 from accelerate.logging import get_logger
 from accelerate.utils import ProjectConfiguration, set_seed
 
-from huggingface_hub import create_repo, upload_folder
+from huggingface_hub import create_repo
 from packaging import version
 from PIL import Image
 from torchvision import transforms
@@ -53,21 +46,15 @@ import json
 import copy
 
 import diffusers
-from diffusers import DiffusionPipeline, StableDiffusionXLPipeline
-from diffusers import AutoencoderKL, DDPMScheduler, EulerDiscreteScheduler
+from diffusers import AutoencoderKL, DDPMScheduler
 from diffusers.optimization import get_scheduler
-from diffusers.pipelines.stable_diffusion_xl.pipeline_stable_diffusion_xl_instruct_pix2pix import (
-    StableDiffusionXLInstructPix2PixPipeline,
-)
-from diffusers.models.attention_processor import AttnProcessor2_0
-from diffusers.utils import check_min_version, deprecate, is_wandb_available, load_image
+from diffusers.utils import deprecate, is_wandb_available
 from diffusers.utils.import_utils import is_xformers_available
 from diffusers.utils.torch_utils import is_compiled_module
-from diffusers.models.autoencoders.vae import DiagonalGaussianDistribution
 
 from dataloader.Realesrgan_offline_dataset import LocalImageDataset
-from FaithDiff.pipelines.pipeline_FaithDiff_tlc import DiffaVA_lr_pipeline
-from FaithDiff.models.unet_2d_condition_w_vae import UNet2DConditionModel
+from FaithDiff.pipelines.pipeline_FaithDiff_tlc import FaithDiffStableDiffusionXLPipeline
+from FaithDiff.models.unet_2d_condition_vae_extension import UNet2DConditionModel
 from FaithDiff.training_utils import EMAModel
 
 # cpu_num = 4
@@ -114,8 +101,6 @@ def image_grid(imgs, rows, cols):
     for i, img in enumerate(imgs):
         grid.paste(img, box=(i%cols*w, i//cols*h))
     return grid
-    
-
 
 def image_grid(imgs, rows, cols):
     assert len(imgs) == rows*cols
@@ -127,7 +112,6 @@ def image_grid(imgs, rows, cols):
     for i, img in enumerate(imgs):
         grid.paste(img, box=(i%cols*w, i//cols*h))
     return grid
-    
 
 def get_concat_h(im1, im2):
     dst = Image.new('RGB', (im1.width + im2.width, im1.height))
@@ -147,7 +131,7 @@ def log_validation(unet, args, accelerator, weight_dtype, step):
     ddpm_scheduler = DDPMScheduler.from_pretrained(args.pretrained_model_name_or_path, subfolder="scheduler")
     ori_net = accelerator.unwrap_model(unet)
     ori_net = ori_net._orig_mod if is_compiled_module(ori_net) else ori_net
-    pipe = DiffaVA_lr_pipeline.from_pretrained(
+    pipe = FaithDiffStableDiffusionXLPipeline.from_pretrained(
         args.pretrained_model_name_or_path,
         vae = vae,
         unet=ori_net,
@@ -162,8 +146,6 @@ def log_validation(unet, args, accelerator, weight_dtype, step):
 
     if args.enable_xformers_memory_efficient_attention:
         pipe.enable_xformers_memory_efficient_attention()
-
-
 
     test_img_list = os.listdir('./validation_set/RealPhoto60')[:10]
     img_count = 0
@@ -218,10 +200,6 @@ def log_validation(unet, args, accelerator, weight_dtype, step):
 
 WANDB_TABLE_COL_NAMES = ["file_name", "edited_image"]
 TORCH_DTYPE_MAPPING = {"fp32": torch.float32, "fp16": torch.float16, "bf16": torch.bfloat16}
-
-
-
-
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Script to train Stable Diffusion XL for InstructPix2Pix.")
@@ -575,14 +553,11 @@ def parse_args():
 
     return args
 
-
-
 def convert_to_np(image, resolution):
     if isinstance(image, str):
         image = PIL.Image.open(image)
     image = image.convert("RGB").resize((resolution, resolution))
     return np.array(image).transpose(2, 0, 1)
-
 
 def main():
     args = parse_args()
@@ -649,7 +624,8 @@ def main():
     text_encoder_2 = CLIPTextModelWithProjection.from_pretrained(args.pretrained_model_name_or_path, subfolder="text_encoder_2")
     vae = AutoencoderKL.from_pretrained(args.pretrained_vae_model_name_or_path, subfolder="vae")
     unet = UNet2DConditionModel.from_pretrained(args.pretrained_model_name_or_path, subfolder="unet")
-    unet.init_vae_encoder()
+    weight_dtype=torch.float16
+    unet.init_vae_encoder(weight_dtype)
     unet.init_information_transformer_layes()
     unet.init_ControlNetConditioningEmbedding()
 
@@ -661,19 +637,16 @@ def main():
     unet.denoise_encoder.load_state_dict(denoise_encoder.state_dict())
     del denoise_encoder
 
-    unet.load_state_dict(torch.load('./train_FaithDiff_stage_1_offline/checkpoint-6000/pretrain.bin'), strict=True)
-    unet.denoise_encoder.dtype=torch.float16
+    unet.load_state_dict(torch.load('./train_FaithDiff_stage_1_offline/checkpoint-6000/pretrain.bin'), strict=True)    
     unet.train()
 
     vae.requires_grad_(False)
     text_encoder.requires_grad_(False)
     text_encoder_2.requires_grad_(False)
-
     
     if args.use_ema:
         # from diffusers.models.modeling_utils import ModelMixin
         ema_unet = EMAModel(args, accelerator, unet.parameters(), model_cls=UNet2DConditionModel, model_config=unet.config)
-        
         
     weight_dtype = torch.float32
     if accelerator.mixed_precision == "fp16":
@@ -724,7 +697,6 @@ def main():
     vae.to(accelerator.device, dtype=weight_dtype)
     text_encoder.to(accelerator.device, dtype=weight_dtype)
     text_encoder_2.to(accelerator.device, dtype=weight_dtype)
-
 
     # 获取 denoise_encoder 的参数并将其存储为一个集合
     denoise_encoder_params_to_opt = unet.denoise_encoder.parameters()

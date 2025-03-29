@@ -8,7 +8,7 @@ from diffusers.utils import BaseOutput, is_flax_available
 
 
 @dataclass
-class DiffaVAPipelineOutput(BaseOutput):
+class FaithDiffStableDiffusionXLPipelineOutput(BaseOutput):
     """
     Output class for Stable Diffusion pipelines.
 
@@ -25,7 +25,7 @@ if is_flax_available():
     import flax
 
     @flax.struct.dataclass
-    class FlaxDiffaVAPipelineOutput(BaseOutput):
+    class FlaxFaithDiffStableDiffusionXLPipelineOutput(BaseOutput):
         """
         Output class for Flax Stable Diffusion XL pipelines.
 
