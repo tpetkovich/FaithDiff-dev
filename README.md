@@ -113,6 +113,24 @@ CUDA_VISIBLE_DEVICES=0 python test_wo_llava.py --img_dir='./dataset/RealDeg' --j
 CUDA_VISIBLE_DEVICES=0,1 python test.py --img_dir='./dataset/RealDeg' --save_dir=./save/RealDeg --use_tile_vae --upscale=8 --guidance_scale=5 --num_inference_steps=20 --load_8bit_llava 
 ```
 
+# Additional parameters
+You can add the following parameters to the `test.py` and `test_wo_llava.py` scripts:
+```Shell
+--cpu_offload = Offloads the weights of the pipeline components to the CPU RAM. If you have a GPU with less than 12GB it would be a good idea to use this parameter.
+--use_fp8 = Changes the diffusion model precision from FP16 to FP8, significantly reducing GPU memory requirements. This option in conjunction with **--cpu_offload** will require only 5GB VRAM for a 2x upscale.
+```
+You can also pass these parameters to the gradio application:
+```Shell
+
+--no_llava = Will disable LLaVA model loading.
+
+# With LLaVA
+python gradio_demo.py --cpu_offload --use_fp8
+
+# Without LLaVA
+python gradio_demo.py --cpu_offload --use_fp8 --no_llava
+```
+
 
 
 ---
