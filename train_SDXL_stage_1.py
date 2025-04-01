@@ -614,9 +614,7 @@ def main():
     unet = UNet2DConditionModel.from_pretrained(args.pretrained_model_name_or_path, subfolder="unet")
     
     weight_dtype=torch.float16
-    unet.init_vae_encoder(weight_dtype)
-    unet.init_information_transformer_layes()
-    unet.init_ControlNetConditioningEmbedding()
+    unet.load_additional_layers(weight_dtype)
     
     denoise_encoder = copy.deepcopy(vae.encoder)
     denoise_encoder.forward = denoise_encoder.forward_wo_post_process
