@@ -2,17 +2,10 @@ import inspect
 import copy
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-from pdb import set_trace as stx
-import numbers
 import cv2
-import numpy as np
-from einops import rearrange
-from PIL import Image
 import torch
 from transformers import (
-    CLIPImageProcessor,
     CLIPTextModel,
     CLIPTextModelWithProjection,
     CLIPTokenizer
@@ -24,7 +17,7 @@ from diffusers.loaders import (
     StableDiffusionXLLoraLoaderMixin,
     TextualInversionLoaderMixin,
 )
-from diffusers.models import AutoencoderKL, ImageProjection, UNet2DConditionModel
+from diffusers.models import AutoencoderKL, UNet2DConditionModel
 from diffusers.models.attention_processor import (
     AttnProcessor2_0,
     FusedAttnProcessor2_0,
@@ -46,10 +39,10 @@ from diffusers.utils import (
 )
 from diffusers.utils.torch_utils import randn_tensor
 from diffusers.pipelines.pipeline_utils import DiffusionPipeline, StableDiffusionMixin
-from .pipeline_output import DiffaVAPipelineOutput
+from .pipeline_output import FaithDiffStableDiffusionXLPipelineOutput
 import PIL.Image
 if is_invisible_watermark_available():
-    from .watermark import StableDiffusionXLWatermarker
+    from diffusers.pipelines.stable_diffusion_xl.watermark import StableDiffusionXLWatermarker
 
 if is_torch_xla_available():
     import torch_xla.core.xla_model as xm
@@ -77,6 +70,7 @@ EXAMPLE_DOC_STRING = """
         ```
 """
 
+        
 def img2tensor(imgs, bgr2rgb=True, float32=True):
     """Numpy array to tensor.
 
@@ -104,16 +98,30 @@ def img2tensor(imgs, bgr2rgb=True, float32=True):
         return [_totensor(img, bgr2rgb, float32) for img in imgs]
     else:
         return _totensor(imgs, bgr2rgb, float32)
-        
-class LocalAttention():
+class LocalAttention:
+    """A class to handle local attention by splitting tensors into overlapping grids for processing."""
+    
     def __init__(self, kernel_size=None, overlap=0.5):
+        """Initialize the LocalAttention module.
+
+        Args:
+            kernel_size (tuple[int, int], optional): Size of the grid (height, width). Defaults to None.
+            overlap (float): Overlap factor between adjacent grids (0.0 to 1.0). Defaults to 0.5.
+        """
         super().__init__()
         self.kernel_size = kernel_size
-        self.overlap = 0.5
+        self.overlap = overlap
         
     def grids_list(self, x):
+        """Split the input tensor into a list of non-overlapping grid patches.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (batch, channels, height, width).
+
+        Returns:
+            list[torch.Tensor]: List of tensor patches.
+        """
         b, c, h, w = x.shape
-        
         self.original_size = (b, c, h, w)
         assert b == 1
         k1, k2 = self.kernel_size
@@ -127,11 +135,11 @@ class LocalAttention():
         self.nc = num_col
 
         import math
-        step_j = k2 if num_col == 1 else math.ceil(k2 * self.overlap) #math.ceil((w - k2) / (num_col - 1) - 1e-8)
-        step_i = k1 if num_row == 1 else math.ceil(k1 * self.overlap) #math.ceil((h - k1) / (num_row - 1) - 1e-8)
+        step_j = k2 if num_col == 1 else math.ceil(k2 * self.overlap)
+        step_i = k1 if num_row == 1 else math.ceil(k1 * self.overlap)
         parts = []
         idxes = []
-        i = 0  # 0~h-1
+        i = 0
         last_i = False
         while i < h and not last_i:
             j = 0
@@ -147,10 +155,17 @@ class LocalAttention():
                 idxes.append({'i': i, 'j': j})
                 j = j + step_j
             i = i + step_i
-        parts_list = parts
-        return parts_list
+        return parts
 
     def grids(self, x):
+        """Split the input tensor into overlapping grid patches and concatenate them.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (batch, channels, height, width).
+
+        Returns:
+            torch.Tensor: Concatenated tensor of all grid patches.
+        """
         b, c, h, w = x.shape
         self.original_size = (b, c, h, w)
         assert b == 1
@@ -166,11 +181,11 @@ class LocalAttention():
         self.nc = num_col
 
         import math
-        step_j = k2 if num_col == 1 else math.ceil(k2 * self.overlap) #math.ceil((w - k2) / (num_col - 1) - 1e-8)
-        step_i = k1 if num_row == 1 else math.ceil(k1 * self.overlap) #math.ceil((h - k1) / (num_row - 1) - 1e-8)
+        step_j = k2 if num_col == 1 else math.ceil(k2 * self.overlap)
+        step_i = k1 if num_row == 1 else math.ceil(k1 * self.overlap)
         parts = []
         idxes = []
-        i = 0  # 0~h-1
+        i = 0
         last_i = False
         while i < h and not last_i:
             j = 0
@@ -186,72 +201,101 @@ class LocalAttention():
                 idxes.append({'i': i, 'j': j})
                 j = j + step_j
             i = i + step_i
-        parts_list = parts
-        parts = torch.cat(parts, dim=0)
         self.idxes = idxes
-        return parts
+        return torch.cat(parts, dim=0)
 
     def _gaussian_weights(self, tile_width, tile_height):
-        """Generates a gaussian mask of weights for tile contributions"""
+        """Generate a Gaussian weight mask for tile contributions.
+
+        Args:
+            tile_width (int): Width of the tile.
+            tile_height (int): Height of the tile.
+
+        Returns:
+            torch.Tensor: Gaussian weight tensor of shape (channels, height, width).
+        """
         from numpy import pi, exp, sqrt
         import numpy as np
 
         latent_width = tile_width
         latent_height = tile_height
-
         var = 0.01
-        midpoint = (latent_width - 1) / 2  # -1 because index goes from 0 to latent_width - 1
+        midpoint = (latent_width - 1) / 2
         x_probs = [exp(-(x-midpoint)*(x-midpoint)/(latent_width*latent_width)/(2*var)) / sqrt(2*pi*var) for x in range(latent_width)]
         midpoint = latent_height / 2
         y_probs = [exp(-(y-midpoint)*(y-midpoint)/(latent_height*latent_height)/(2*var)) / sqrt(2*pi*var) for y in range(latent_height)]
-
         weights = np.outer(y_probs, x_probs)
         return torch.tile(torch.tensor(weights, device=torch.device('cuda')), (4, 1, 1))
 
-
     def grids_inverse(self, outs):
+        """Reconstruct the original tensor from processed grid patches with overlap blending.
+
+        Args:
+            outs (torch.Tensor): Processed grid patches.
+
+        Returns:
+            torch.Tensor: Reconstructed tensor of original size.
+        """
         preds = torch.zeros(self.original_size).to(outs.device)
         b, c, h, w = self.original_size
-
         count_mt = torch.zeros((b, 4, h, w)).to(outs.device)
         k1, k2 = self.kernel_size
-
 
         for cnt, each_idx in enumerate(self.idxes):
             i = each_idx['i']
             j = each_idx['j']
-
-            preds[0, :, i:i + k1, j:j + k2] += outs[cnt, :, :, :]*self.tile_weights
+            preds[0, :, i:i + k1, j:j + k2] += outs[cnt, :, :, :] * self.tile_weights
             count_mt[0, :, i:i + k1, j:j + k2] += self.tile_weights
 
         del outs
         torch.cuda.empty_cache()
         return preds / count_mt
 
-
     def _pad(self, x):
-        b,c,h,w = x.shape
+        """Pad the input tensor to align with kernel size.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (batch, channels, height, width).
+
+        Returns:
+            tuple: Padded tensor and padding values.
+        """
+        b, c, h, w = x.shape
         k1, k2 = self.kernel_size
-        mod_pad_h = (k1- h % k1) % k1
+        mod_pad_h = (k1 - h % k1) % k1
         mod_pad_w = (k2 - w % k2) % k2
         pad = (mod_pad_w//2, mod_pad_w-mod_pad_w//2, mod_pad_h//2, mod_pad_h-mod_pad_h//2)
         x = F.pad(x, pad, 'reflect')
         return x, pad
 
     def forward(self, x):
-        b,c,h,w = x.shape
-        qkv = self.grids(x) # convert to local windows 
-        out = self.grids_inverse(qkv) # reverse
+        """Apply local attention by splitting into grids and reconstructing.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (batch, channels, height, width).
+
+        Returns:
+            torch.Tensor: Processed tensor of original size.
+        """
+        b, c, h, w = x.shape
+        qkv = self.grids(x)
+        out = self.grids_inverse(qkv)
         return out
-
-
     
 # Copied from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion.rescale_noise_cfg
 def rescale_noise_cfg(noise_cfg, noise_pred_text, guidance_rescale=0.0):
-    """
+    """ 
     Rescale `noise_cfg` according to `guidance_rescale`. Based on findings of [Common Diffusion Noise Schedules and
     Sample Steps are Flawed](https://arxiv.org/pdf/2305.08891.pdf). See Section 3.4
-    """
+
+    Args:
+        noise_cfg (torch.Tensor): Noise configuration tensor.
+        noise_pred_text (torch.Tensor): Predicted noise from text-conditioned model.
+        guidance_rescale (float): Rescaling factor for guidance. Defaults to 0.0.
+
+    Returns:
+        torch.Tensor: Rescaled noise configuration.
+    """  
     std_text = noise_pred_text.std(dim=list(range(1, noise_pred_text.ndim)), keepdim=True)
     std_cfg = noise_cfg.std(dim=list(range(1, noise_cfg.ndim)), keepdim=True)
     # rescale the results from guidance (fixes overexposure)
@@ -260,11 +304,20 @@ def rescale_noise_cfg(noise_cfg, noise_pred_text, guidance_rescale=0.0):
     noise_cfg = guidance_rescale * noise_pred_rescaled + (1 - guidance_rescale) * noise_cfg
     return noise_cfg
 
-
 # Copied from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion_img2img.retrieve_latents
 def retrieve_latents(
     encoder_output: torch.Tensor, generator: Optional[torch.Generator] = None, sample_mode: str = "sample"
 ):
+    """Retrieve latents from an encoder output.
+
+    Args:
+        encoder_output (torch.Tensor): Output from an encoder (e.g., VAE).
+        generator (torch.Generator, optional): Random generator for sampling. Defaults to None.
+        sample_mode (str): Sampling mode ("sample" or "argmax"). Defaults to "sample".
+
+    Returns:
+        torch.Tensor: Retrieved latent tensor.
+    """
     if hasattr(encoder_output, "latent_dist") and sample_mode == "sample":
         return encoder_output.latent_dist.sample(generator)
     elif hasattr(encoder_output, "latent_dist") and sample_mode == "argmax":
@@ -318,8 +371,7 @@ def retrieve_timesteps(
         timesteps = scheduler.timesteps
     return timesteps, num_inference_steps
 
-
-class DiffaVA_lr_pipeline(
+class FaithDiffStableDiffusionXLPipeline(
     DiffusionPipeline,
     StableDiffusionMixin,
     FromSingleFileMixin,
@@ -372,13 +424,12 @@ class DiffaVA_lr_pipeline(
             watermarker will be used.
     """
 
-    model_cpu_offload_seq = "text_encoder->text_encoder_2->image_encoder->unet->vae->mlp_projector"
+    model_cpu_offload_seq = "text_encoder->text_encoder_2->denoise_encoder->unet->vae"
     _optional_components = [
         "tokenizer",
         "tokenizer_2",
         "text_encoder",
-        "text_encoder_2",
-        "image_encoder",
+        "text_encoder_2",        
         "feature_extractor",
     ]
     _callback_tensor_inputs = [
@@ -400,16 +451,16 @@ class DiffaVA_lr_pipeline(
         tokenizer: CLIPTokenizer,
         tokenizer_2: CLIPTokenizer,
         unet: UNet2DConditionModel,
-        scheduler: KarrasDiffusionSchedulers,
-        DDPM_scheduler: DDPMScheduler,
+        scheduler: KarrasDiffusionSchedulers,   
+        DDPM_scheduler: DDPMScheduler,   
         force_zeros_for_empty_prompt: bool = True,
-        add_watermarker: Optional[bool] = None,
+        add_watermarker: Optional[bool] = None,        
     ):
         super().__init__()
 
         self.register_modules(
             vae=vae,
-            denoise_encoder = denoise_encoder,
+            denoise_encoder = denoise_encoder,            
             text_encoder=text_encoder,
             text_encoder_2=text_encoder_2,
             tokenizer=tokenizer,
@@ -424,7 +475,6 @@ class DiffaVA_lr_pipeline(
         self.image_processor = VaeImageProcessor(vae_scale_factor=self.vae_scale_factor)
 
         self.default_sample_size = self.unet.config.sample_size
-
         add_watermarker = add_watermarker if add_watermarker is not None else is_invisible_watermark_available()
 
         if add_watermarker:
@@ -522,7 +572,7 @@ class DiffaVA_lr_pipeline(
         text_encoders = (
             [self.text_encoder, self.text_encoder_2] if self.text_encoder is not None else [self.text_encoder_2]
         )
-
+        dtype = text_encoders[0].dtype
         if prompt_embeds is None:
             prompt_2 = prompt_2 or prompt
             prompt_2 = [prompt_2] if isinstance(prompt_2, str) else prompt_2
@@ -553,7 +603,7 @@ class DiffaVA_lr_pipeline(
                         "The following part of your input was truncated because CLIP can only handle sequences up to"
                         f" {tokenizer.model_max_length} tokens: {removed_text}"
                     )
-
+                text_encoder = text_encoder.to(dtype)
                 prompt_embeds = text_encoder(text_input_ids.to(device), output_hidden_states=True)
 
                 # We are only ALWAYS interested in the pooled output of the final text encoder
@@ -665,78 +715,7 @@ class DiffaVA_lr_pipeline(
                 unscale_lora_layers(self.text_encoder_2, lora_scale)
 
         return prompt_embeds, negative_prompt_embeds, pooled_prompt_embeds, negative_pooled_prompt_embeds
-
-    # Copied from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion.StableDiffusionPipeline.encode_image
-    def encode_image(self, image, device, num_images_per_prompt):
-        dtype = next(self.image_encoder.parameters()).dtype
-
-        if not isinstance(image, torch.Tensor):
-            image = self.feature_extractor(image, return_tensors="pt").pixel_values
-
-        image = image.to(device=device, dtype=dtype)
-
-        image_enc_hidden_states = self.image_encoder(image, output_hidden_states=True).last_hidden_state[:, 1:]
-        image_enc_hidden_states = image_enc_hidden_states.repeat_interleave(num_images_per_prompt, dim=0)
-        image_prompt_embeds = self.mlp_projector(image_enc_hidden_states)
-        uncond_image_enc_hidden_states = torch.zeros_like(image_enc_hidden_states)
-        uncond_image_prompt_embeds = self.mlp_projector(uncond_image_enc_hidden_states)
-
-        return image_prompt_embeds, uncond_image_prompt_embeds
-
-
-
-    # Copied from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion.StableDiffusionPipeline.prepare_ip_adapter_image_embeds
-    def prepare_ip_adapter_image_embeds(
-        self, ip_adapter_image, ip_adapter_image_embeds, device, num_images_per_prompt, do_classifier_free_guidance
-    ):
-        if ip_adapter_image_embeds is None:
-            if not isinstance(ip_adapter_image, list):
-                ip_adapter_image = [ip_adapter_image]
-
-            if len(ip_adapter_image) != len(self.unet.encoder_hid_proj.image_projection_layers):
-                raise ValueError(
-                    f"`ip_adapter_image` must have same length as the number of IP Adapters. Got {len(ip_adapter_image)} images and {len(self.unet.encoder_hid_proj.image_projection_layers)} IP Adapters."
-                )
-
-            image_embeds = []
-            for single_ip_adapter_image, image_proj_layer in zip(
-                ip_adapter_image, self.unet.encoder_hid_proj.image_projection_layers
-            ):
-                output_hidden_state = not isinstance(image_proj_layer, ImageProjection)
-                single_image_embeds, single_negative_image_embeds = self.encode_image(
-                    single_ip_adapter_image, device, 1, output_hidden_state
-                )
-                single_image_embeds = torch.stack([single_image_embeds] * num_images_per_prompt, dim=0)
-                single_negative_image_embeds = torch.stack(
-                    [single_negative_image_embeds] * num_images_per_prompt, dim=0
-                )
-
-                if do_classifier_free_guidance:
-                    single_image_embeds = torch.cat([single_negative_image_embeds, single_image_embeds])
-                    single_image_embeds = single_image_embeds.to(device)
-
-                image_embeds.append(single_image_embeds)
-        else:
-            repeat_dims = [1]
-            image_embeds = []
-            for single_image_embeds in ip_adapter_image_embeds:
-                if do_classifier_free_guidance:
-                    single_negative_image_embeds, single_image_embeds = single_image_embeds.chunk(2)
-                    single_image_embeds = single_image_embeds.repeat(
-                        num_images_per_prompt, *(repeat_dims * len(single_image_embeds.shape[1:]))
-                    )
-                    single_negative_image_embeds = single_negative_image_embeds.repeat(
-                        num_images_per_prompt, *(repeat_dims * len(single_negative_image_embeds.shape[1:]))
-                    )
-                    single_image_embeds = torch.cat([single_negative_image_embeds, single_image_embeds])
-                else:
-                    single_image_embeds = single_image_embeds.repeat(
-                        num_images_per_prompt, *(repeat_dims * len(single_image_embeds.shape[1:]))
-                    )
-                image_embeds.append(single_image_embeds)
-
-        return image_embeds
-
+   
     # Copied from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion.StableDiffusionPipeline.prepare_extra_step_kwargs
     def prepare_extra_step_kwargs(self, generator, eta):
         # prepare extra kwargs for the scheduler step, since not all schedulers have the same signature
@@ -769,11 +748,10 @@ class DiffaVA_lr_pipeline(
         negative_prompt_embeds=None,
         pooled_prompt_embeds=None,
         negative_pooled_prompt_embeds=None,
-        ip_adapter_image=None,
-        ip_adapter_image_embeds=None,
-        callback_on_step_end_tensor_inputs=None,
-        
+        callback_on_step_end_tensor_inputs=None,        
     ):
+        if lr_img is None:
+            raise ValueError(f"`lr_image` must be provided!")
         if height % 8 != 0 or width % 8 != 0:
             raise ValueError(f"`height` and `width` have to be divisible by 8 but are {height} and {width}.")
 
@@ -838,21 +816,6 @@ class DiffaVA_lr_pipeline(
                 "If `negative_prompt_embeds` are provided, `negative_pooled_prompt_embeds` also have to be passed. Make sure to generate `negative_pooled_prompt_embeds` from the same text encoder that was used to generate `negative_prompt_embeds`."
             )
 
-        if ip_adapter_image is not None and ip_adapter_image_embeds is not None:
-            raise ValueError(
-                "Provide either `ip_adapter_image` or `ip_adapter_image_embeds`. Cannot leave both `ip_adapter_image` and `ip_adapter_image_embeds` defined."
-            )
-
-        if ip_adapter_image_embeds is not None:
-            if not isinstance(ip_adapter_image_embeds, list):
-                raise ValueError(
-                    f"`ip_adapter_image_embeds` has to be of type `list` but is {type(ip_adapter_image_embeds)}"
-                )
-            elif ip_adapter_image_embeds[0].ndim not in [3, 4]:
-                raise ValueError(
-                    f"`ip_adapter_image_embeds` has to be a list of 3D or 4D tensors but is {ip_adapter_image_embeds[0].ndim}D"
-                )
-
     # Copied from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion.StableDiffusionPipeline.prepare_latents
     def prepare_latents(self, batch_size, num_channels_latents, height, width, dtype, device, generator, latents=None):
         shape = (batch_size, num_channels_latents, height // self.vae_scale_factor, width // self.vae_scale_factor)
@@ -870,24 +833,6 @@ class DiffaVA_lr_pipeline(
         # scale the initial noise by the standard deviation required by the scheduler
         latents = latents * self.scheduler.init_noise_sigma
         return latents
-
-    def _get_add_time_ids(
-        self, original_size, crops_coords_top_left, target_size, dtype, text_encoder_projection_dim=None
-    ):
-        add_time_ids = list(original_size + crops_coords_top_left + target_size)
-
-        passed_add_embed_dim = (
-            self.unet.config.addition_time_embed_dim * len(add_time_ids) + text_encoder_projection_dim
-        )
-        expected_add_embed_dim = self.unet.add_embedding.linear_1.in_features
-
-        if expected_add_embed_dim != passed_add_embed_dim:
-            raise ValueError(
-                f"Model expects an added time embedding vector of length {expected_add_embed_dim}, but a vector of {passed_add_embed_dim} was created. The model has an incorrect config. Please check `unet.config.time_embedding_type` and `text_encoder_2.config.projection_dim`."
-            )
-
-        add_time_ids = torch.tensor([add_time_ids], dtype=dtype)
-        return add_time_ids
 
     def upcast_vae(self):
         dtype = self.vae.dtype
@@ -939,14 +884,37 @@ class DiffaVA_lr_pipeline(
             emb = torch.nn.functional.pad(emb, (0, 1))
         assert emb.shape == (w.shape[0], embedding_dim)
         return emb
+    
+    def set_encoder_tile_settings(self, 
+                         denoise_encoder_tile_sample_min_size = 1024, 
+                         denoise_encoder_sample_overlap_factor = 0.25, 
+                         vae_sample_size=1024, 
+                         vae_tile_overlap_factor = 0.25):
+        self.denoise_encoder.tile_sample_min_size = denoise_encoder_tile_sample_min_size
+        self.denoise_encoder.tile_overlap_factor = denoise_encoder_sample_overlap_factor
+        self.vae.config.sample_size = vae_sample_size
+        self.vae.tile_overlap_factor = vae_tile_overlap_factor
+
+    def enable_vae_tiling(self):
+        r"""
+        Enable tiled VAE decoding. When this option is enabled, the VAE will split the input tensor into tiles to
+        compute decoding and encoding in several steps. This is useful for saving a large amount of memory and to allow
+        processing larger images.
+        """
+        self.vae.enable_tiling()
+        self.denoise_encoder.enable_tiling()
+
+    def disable_vae_tiling(self):
+        r"""
+        Disable tiled VAE decoding. If `enable_vae_tiling` was previously enabled, this method will go back to
+        computing decoding in one step.
+        """
+        self.vae.disable_tiling()
+        self.denoise_encoder.disable_tiling()
 
     @property
     def guidance_scale(self):
         return self._guidance_scale
-
-    @property
-    def image_guidance_scale(self):
-        return self._image_guidance_scale
 
     @property
     def guidance_rescale(self):
@@ -998,15 +966,11 @@ class DiffaVA_lr_pipeline(
             # needs_upcasting = self.vae.dtype == torch.float16 and self.vae.config.force_upcast
             # if needs_upcasting:
             #     image = image.float()
-            #     self.upcast_vae()
-            
-
+            #     self.upcast_vae()            
             image_latents = self.denoise_encoder(image)
-
             # cast back to fp16 if needed
             # if needs_upcasting:
             #     self.vae.to(dtype=torch.float16)
-            
 
         if batch_size > image_latents.shape[0] and batch_size % image_latents.shape[0] == 0:
             # expand image_latents for batch_size
@@ -1054,7 +1018,6 @@ class DiffaVA_lr_pipeline(
         denoising_end: Optional[float] = None,
         overlap: float = 0.5,
         guidance_scale: float = 5.0,
-        image_guidance_scale: float = 1.5,
         negative_prompt: Optional[Union[str, List[str]]] = None,
         negative_prompt_2: Optional[Union[str, List[str]]] = None,
         num_images_per_prompt: Optional[int] = 1,
@@ -1065,18 +1028,12 @@ class DiffaVA_lr_pipeline(
         negative_prompt_embeds: Optional[torch.FloatTensor] = None,
         pooled_prompt_embeds: Optional[torch.FloatTensor] = None,
         negative_pooled_prompt_embeds: Optional[torch.FloatTensor] = None,
-        ip_adapter_image: Optional[PipelineImageInput] = None,
-        ip_adapter_image_embeds: Optional[List[torch.FloatTensor]] = None,
         output_type: Optional[str] = "pil",
         return_dict: bool = True,
         cross_attention_kwargs: Optional[Dict[str, Any]] = None,
         guidance_rescale: float = 0.0,
         original_size: Optional[Tuple[int, int]] = None,
-        crops_coords_top_left: Tuple[int, int] = (0, 0),
         target_size: Optional[Tuple[int, int]] = None,
-        negative_original_size: Optional[Tuple[int, int]] = None,
-        negative_crops_coords_top_left: Tuple[int, int] = (0, 0),
-        negative_target_size: Optional[Tuple[int, int]] = None,
         clip_skip: Optional[int] = None,
         callback_on_step_end: Optional[Callable[[int, int, Dict], None]] = None,
         callback_on_step_end_tensor_inputs: List[str] = ["latents"],
@@ -1087,6 +1044,7 @@ class DiffaVA_lr_pipeline(
         Function invoked when calling the pipeline for generation.
 
         Args:
+            lr_img (PipelineImageInput, optional): Low-resolution input image for conditioning the generation process.
             prompt (`str` or `List[str]`, *optional*):
                 The prompt or prompts to guide the image generation. If not defined, one has to pass `prompt_embeds`.
                 instead.
@@ -1106,6 +1064,9 @@ class DiffaVA_lr_pipeline(
             num_inference_steps (`int`, *optional*, defaults to 50):
                 The number of denoising steps. More denoising steps usually lead to a higher quality image at the
                 expense of slower inference.
+            start_point (str, *optional*): 
+                The starting point for the generation process. Can be "noise" (random noise) or "lr" (low-resolution image). 
+                Defaults to "noise".
             timesteps (`List[int]`, *optional*):
                 Custom timesteps to use for the denoising process with schedulers which support a `timesteps` argument
                 in their `set_timesteps` method. If not defined, the default behavior when `num_inference_steps` is
@@ -1117,6 +1078,9 @@ class DiffaVA_lr_pipeline(
                 scheduler. The denoising_end parameter should ideally be utilized when this pipeline forms a part of a
                 "Mixture of Denoisers" multi-pipeline setup, as elaborated in [**Refining the Image
                 Output**](https://huggingface.co/docs/diffusers/api/pipelines/stable_diffusion/stable_diffusion_xl#refining-the-image-output)
+            overlap (float): 
+                Overlap factor for local attention tiling (between 0.0 and 1.0). Controls the overlap between adjacent 
+                grid patches during processing. Defaults to 0.5.
             guidance_scale (`float`, *optional*, defaults to 5.0):
                 Guidance scale as defined in [Classifier-Free Diffusion Guidance](https://arxiv.org/abs/2207.12598).
                 `guidance_scale` is defined as `w` of equation 2. of [Imagen
@@ -1156,12 +1120,6 @@ class DiffaVA_lr_pipeline(
                 Pre-generated negative pooled text embeddings. Can be used to easily tweak text inputs, *e.g.* prompt
                 weighting. If not provided, pooled negative_prompt_embeds will be generated from `negative_prompt`
                 input argument.
-            ip_adapter_image: (`PipelineImageInput`, *optional*): Optional image input to work with IP Adapters.
-            ip_adapter_image_embeds (`List[torch.FloatTensor]`, *optional*):
-                Pre-generated image embeddings for IP-Adapter. It should be a list of length same as number of
-                IP-adapters. Each element should be a tensor of shape `(batch_size, num_images, emb_dim)`. It should
-                contain the negative image embedding if `do_classifier_free_guidance` is set to `True`. If not
-                provided, embeddings are computed from the `ip_adapter_image` input argument.
             output_type (`str`, *optional*, defaults to `"pil"`):
                 The output format of the generate image. Choose between
                 [PIL](https://pillow.readthedocs.io/en/stable/): `PIL.Image.Image` or `np.array`.
@@ -1182,30 +1140,13 @@ class DiffaVA_lr_pipeline(
                 `original_size` defaults to `(height, width)` if not specified. Part of SDXL's micro-conditioning as
                 explained in section 2.2 of
                 [https://huggingface.co/papers/2307.01952](https://huggingface.co/papers/2307.01952).
-            crops_coords_top_left (`Tuple[int]`, *optional*, defaults to (0, 0)):
-                `crops_coords_top_left` can be used to generate an image that appears to be "cropped" from the position
-                `crops_coords_top_left` downwards. Favorable, well-centered images are usually achieved by setting
-                `crops_coords_top_left` to (0, 0). Part of SDXL's micro-conditioning as explained in section 2.2 of
-                [https://huggingface.co/papers/2307.01952](https://huggingface.co/papers/2307.01952).
             target_size (`Tuple[int]`, *optional*, defaults to (1024, 1024)):
                 For most cases, `target_size` should be set to the desired height and width of the generated image. If
                 not specified it will default to `(height, width)`. Part of SDXL's micro-conditioning as explained in
                 section 2.2 of [https://huggingface.co/papers/2307.01952](https://huggingface.co/papers/2307.01952).
-            negative_original_size (`Tuple[int]`, *optional*, defaults to (1024, 1024)):
-                To negatively condition the generation process based on a specific image resolution. Part of SDXL's
-                micro-conditioning as explained in section 2.2 of
-                [https://huggingface.co/papers/2307.01952](https://huggingface.co/papers/2307.01952). For more
-                information, refer to this issue thread: https://github.com/huggingface/diffusers/issues/4208.
-            negative_crops_coords_top_left (`Tuple[int]`, *optional*, defaults to (0, 0)):
-                To negatively condition the generation process based on a specific crop coordinates. Part of SDXL's
-                micro-conditioning as explained in section 2.2 of
-                [https://huggingface.co/papers/2307.01952](https://huggingface.co/papers/2307.01952). For more
-                information, refer to this issue thread: https://github.com/huggingface/diffusers/issues/4208.
-            negative_target_size (`Tuple[int]`, *optional*, defaults to (1024, 1024)):
-                To negatively condition the generation process based on a target image resolution. It should be as same
-                as the `target_size` for most cases. Part of SDXL's micro-conditioning as explained in section 2.2 of
-                [https://huggingface.co/papers/2307.01952](https://huggingface.co/papers/2307.01952). For more
-                information, refer to this issue thread: https://github.com/huggingface/diffusers/issues/4208.
+            clip_skip (`int`, *optional*):
+                Number of layers to be skipped from CLIP while computing the prompt embeddings. A value of 1 means that
+                the output of the pre-final layer will be used for computing the prompt embeddings.
             callback_on_step_end (`Callable`, *optional*):
                 A function that calls at the end of each denoising steps during the inference. The function is called
                 with the following arguments: `callback_on_step_end(self: DiffusionPipeline, step: int, timestep: int,
@@ -1215,6 +1156,9 @@ class DiffaVA_lr_pipeline(
                 The list of tensor inputs for the `callback_on_step_end` function. The tensors specified in the list
                 will be passed as `callback_kwargs` argument. You will only be able to include variables listed in the
                 `._callback_tensor_inputs` attribute of your pipeline class.
+            add_sample (bool): 
+                Whether to include sample conditioning (e.g., low-resolution image) in the UNet during denoising. 
+                Defaults to True.
 
         Examples:
 
@@ -1261,26 +1205,20 @@ class DiffaVA_lr_pipeline(
             negative_prompt_embeds,
             pooled_prompt_embeds,
             negative_pooled_prompt_embeds,
-            ip_adapter_image,
-            ip_adapter_image_embeds,
             callback_on_step_end_tensor_inputs,
-        )
-        self._image_guidance_scale = image_guidance_scale
+        )       
         self._guidance_scale = guidance_scale
         self._guidance_rescale = guidance_rescale
         self._clip_skip = clip_skip
         self._cross_attention_kwargs = cross_attention_kwargs
         self._denoising_end = denoising_end
         self._interrupt = False
-
         self.tlc_vae_latents = LocalAttention((target_size[0] // 8,target_size[1]// 8), overlap)
-
         self.tlc_vae_img = LocalAttention((target_size[0]// 8,target_size[1]// 8), overlap)
 
         # 2. Define call parameters
         batch_size = 1
         num_images_per_prompt = 1
-
 
         device = torch.device('cuda') #self._execution_device
 
@@ -1301,27 +1239,23 @@ class DiffaVA_lr_pipeline(
                 num_images_per_prompt=num_samples,
                 do_classifier_free_guidance=True,
                 negative_prompt=negative_prompt,
+                lora_scale=lora_scale
             )
 
-        lr_img_list = [lr_img]
-        
+        lr_img_list = [lr_img]        
         lr_img = self.image_processor.preprocess(lr_img_list, height=height, width=width).to(device, dtype = prompt_embeds.dtype)      
-        # 4. Prepare timesteps
-        timesteps, num_inference_steps = retrieve_timesteps(self.scheduler, num_inference_steps, device, timesteps)
         
+        # 4. Prepare timesteps
+        timesteps, num_inference_steps = retrieve_timesteps(self.scheduler, num_inference_steps, device, timesteps)        
         image_latents = self.prepare_image_latents(lr_img,
             batch_size,
             num_images_per_prompt,
             prompt_embeds.dtype,
             device,
-            self.do_classifier_free_guidance,)
+            self.do_classifier_free_guidance)
 
         image_latents = self.tlc_vae_img.grids(image_latents)
         
-        
-
-
-
         # 5. Prepare latent variables
         num_channels_latents = self.vae.config.latent_channels
         latents = self.prepare_latents(
@@ -1342,38 +1276,21 @@ class DiffaVA_lr_pipeline(
             latents = self.DDPM_scheduler.add_noise(latents_condition_image[0:1, ...], latents, start_steps_tensor)
 
         latents = self.tlc_vae_latents.grids(latents)
+       
         # 6. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
         extra_step_kwargs = self.prepare_extra_step_kwargs(generator, eta)
-
-
         views_scheduler_status = [copy.deepcopy(self.scheduler.__dict__)] * image_latents.shape[0]
 
         # 7. Prepare added time ids & embeddings
         add_text_embeds = pooled_prompt_embeds
-        if self.text_encoder_2 is None:
-            text_encoder_projection_dim = int(pooled_prompt_embeds.shape[-1])
-        else:
-            text_encoder_projection_dim = self.text_encoder_2.config.projection_dim
-
-
+      
         if self.do_classifier_free_guidance:
             prompt_embeds = torch.cat([negative_prompt_embeds, prompt_embeds], dim=0)
             add_text_embeds = torch.cat([negative_pooled_prompt_embeds, add_text_embeds], dim=0)
-        #     add_time_ids = torch.cat([negative_add_time_ids, add_time_ids], dim=0)
-
+      
         prompt_embeds = prompt_embeds.to(device)
         add_text_embeds = add_text_embeds.to(device)
-        # add_time_ids = add_time_ids.to(device).repeat(batch_size * num_images_per_prompt, 1)
-
-        if ip_adapter_image is not None or ip_adapter_image_embeds is not None:
-            image_embeds = self.prepare_ip_adapter_image_embeds(
-                ip_adapter_image,
-                ip_adapter_image_embeds,
-                device,
-                batch_size * num_images_per_prompt,
-                self.do_classifier_free_guidance,
-            )
-
+      
         # 8. Denoising loop
         num_warmup_steps = max(len(timesteps) - num_inference_steps * self.scheduler.order, 0)
 
@@ -1429,26 +1346,23 @@ class DiffaVA_lr_pipeline(
 
                     # predict the noise residual
                     added_cond_kwargs = {"text_embeds": add_text_embeds, "time_ids": add_time_ids}
-
-                    noise_pred = self.unet(
-                        scaled_latent_model_input,
-                        t,
-                        encoder_hidden_states=prompt_embeds,
-                        timestep_cond=timestep_cond,
-                        cross_attention_kwargs=self.cross_attention_kwargs,
-                        input_embedding=img_sub_latents,
-                        add_sample = add_sample,
-                        added_cond_kwargs=added_cond_kwargs,
-                        return_dict=False,
-                    )[0]
+                    with torch.amp.autocast(device.type, dtype=latents.dtype, enabled=latents.dtype != self.unet.dtype):
+                        noise_pred = self.unet(
+                            scaled_latent_model_input,
+                            t,
+                            encoder_hidden_states=prompt_embeds,
+                            timestep_cond=timestep_cond,
+                            cross_attention_kwargs=self.cross_attention_kwargs,
+                            input_embedding=img_sub_latents,
+                            add_sample = add_sample,
+                            added_cond_kwargs=added_cond_kwargs,
+                            return_dict=False,
+                        )[0]
 
                     # perform guidance
                     if self.do_classifier_free_guidance:
-
                         noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
                         noise_pred = noise_pred_uncond + self.guidance_scale * (noise_pred_text - noise_pred_uncond)
-
-
                         
                     if self.do_classifier_free_guidance and self.guidance_rescale > 0.0:
                         # Based on 3.4. in https://arxiv.org/pdf/2305.08891.pdf
@@ -1542,4 +1456,4 @@ class DiffaVA_lr_pipeline(
         if not return_dict:
             return (image, )
 
-        return DiffaVAPipelineOutput(images=image)
+        return FaithDiffStableDiffusionXLPipelineOutput(images=image)

@@ -13,6 +13,7 @@ from CKPT_PTH import LLAVA_MODEL_PATH, SDXL_PATH, FAITHDIFF_PATH, VAE_FP16_PATH
 from utils.color_fix import wavelet_color_fix, adain_color_fix
 from utils.image_process import check_image_size, create_hdr_effect
 from llava.llm_agent import LLavaAgent
+from utils.system import torch_gc
 
 MAX_SEED = np.iinfo(np.int32).max
 parser = argparse.ArgumentParser()
@@ -20,12 +21,14 @@ parser.add_argument("--ip", type=str, default='127.0.0.1')
 parser.add_argument("--port", type=int, default='6688')
 parser.add_argument("--no_llava", action='store_true', default=False)
 parser.add_argument("--cpu_offload", action='store_true', default=False)
+parser.add_argument("--use_fp8", action='store_true', default=False)
 args = parser.parse_args()
 
 server_ip = args.ip
 server_port = args.port
 use_llava = not args.no_llava
 cpu_offload = args.cpu_offload
+use_fp8 = args.use_fp8
 
 if torch.cuda.device_count() >= 2:
     LLaVA_device = 'cuda:1'
@@ -42,16 +45,13 @@ if use_llava:
 else:
     llava_agent = None
     
-pipe = FaithDiff_pipeline(sdxl_path=SDXL_PATH, VAE_FP16_path=VAE_FP16_PATH, FaithDiff_path=FAITHDIFF_PATH)
+pipe = FaithDiff_pipeline(sdxl_path=SDXL_PATH, VAE_FP16_path=VAE_FP16_PATH, FaithDiff_path=FAITHDIFF_PATH, use_fp8=use_fp8)
 pipe = pipe.to(Diffusion_device)
 
 ### enable_vae_tiling
-pipe.denoise_encoder.tile_sample_min_size = 1024
-pipe.denoise_encoder.tile_overlap_factor = 0.25
-pipe.denoise_encoder.enable_tiling()
-pipe.vae.config.sample_size = 1024
-pipe.vae.tile_overlap_factor = 0.25
-pipe.vae.enable_tiling()
+pipe.set_encoder_tile_settings()
+pipe.enable_vae_tiling()
+
 if cpu_offload:
     pipe.enable_model_cpu_offload()
 
@@ -109,6 +109,7 @@ def process(
     input_image = create_hdr_effect(input_image, hdr)
 
     gen_image = pipe(lr_img=input_image, prompt = user_prompt, negative_prompt = negative_prompt_init, num_inference_steps=num_inference_steps, guidance_scale=guidance_scale, generator=generator, start_point=start_point, height = height_now, width=width_now,  overlap=latent_tiled_overlap, target_size=(latent_tiled_size, latent_tiled_size)).images[0]
+    torch_gc()
     cropped_image = gen_image.crop((0, 0, width_init, height_init))
     if color_fix == 'nofix':
         out_image = cropped_image

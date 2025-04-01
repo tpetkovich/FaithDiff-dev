@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 import numpy as np
 import torch
 
-from FaithDiff.models.unet_2d_condition_w_vae import UNet2DConditionModel
+from FaithDiff.models.unet_2d_condition_vae_extension import UNet2DConditionModel
 from diffusers.schedulers import SchedulerMixin
 from diffusers.utils import (
     convert_state_dict_to_diffusers,
