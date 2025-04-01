@@ -10,6 +10,7 @@
 ---
 
 ### 🚩 **New Features/Updates**
+- ✅ April 1, 2025. Supports FP8 inference and CPU offloading, significantly reducing memory usage. Thanks Eliseu Silva!!!
 - ✅ March 28, 2025. Update a nice gradio demo.
 - ✅ March 24, 2025. Release the training code.
 - ✅ February 09, 2025. Support ultra-high-resolution (8K and above) image restoration on 24GB GPUs.
