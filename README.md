@@ -10,6 +10,7 @@
 ---
 
 ### 🚩 **New Features/Updates**
+- ✅ April 3, 2025. The code has been integrated into [Diffusers](https://github.com/huggingface/diffusers/blob/main/examples/community/pipeline_faithdiff_stable_diffusion_xl.py). Respect to Eliseu Silva!!!
 - ✅ April 1, 2025. Supports FP8 inference and CPU offloading, significantly reducing memory usage. Thanks Eliseu Silva!!!
 - ✅ March 28, 2025. Update a nice gradio demo.
 - ✅ March 24, 2025. Release the training code.
