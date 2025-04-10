@@ -625,10 +625,7 @@ def main():
     del denoise_encoder
     
     unet.train() # If you GPU memory is limited, you can set it to unet.requires_grad_(False)
-
     '''
-    # If you GPU memory is limited, you can set it to unet.train()
-
     unet.requires_grad_(False)
     for param in unet.condition_embedding.parameters():
         param.requires_grad = True
