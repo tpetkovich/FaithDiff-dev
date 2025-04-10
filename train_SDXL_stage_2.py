@@ -646,7 +646,8 @@ def main():
     if args.use_ema:
         # from diffusers.models.modeling_utils import ModelMixin
         ema_unet = EMAModel(args, accelerator, unet.parameters(), model_cls=UNet2DConditionModel, model_config=unet.config)
-        
+        ema_unet.to('cpu', dtype=weight_dtype)
+
     weight_dtype = torch.float32
     if accelerator.mixed_precision == "fp16":
         weight_dtype = torch.float16

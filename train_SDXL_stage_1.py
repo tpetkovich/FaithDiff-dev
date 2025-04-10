@@ -624,14 +624,28 @@ def main():
     unet.denoise_encoder.load_state_dict(denoise_encoder.state_dict())
     del denoise_encoder
     
-    unet.train()
+    unet.train() # If you GPU memory is limited, you can set it to unet.requires_grad_(False)
+
+    '''
+    # If you GPU memory is limited, you can set it to unet.train()
+
+    unet.requires_grad_(False)
+    for param in unet.condition_embedding.parameters():
+        param.requires_grad = True
+    for param in unet.information_transformer_layes.parameters():
+        param.requires_grad = True
+    for param in unet.spatial_ch_projs.parameters():
+        param.requires_grad = True
+    '''
+
     vae.requires_grad_(False)
     text_encoder.requires_grad_(False)
     text_encoder_2.requires_grad_(False)
     
     if args.use_ema:
         ema_unet = EMAModel(args, accelerator, unet.parameters(), model_cls=UNet2DConditionModel, model_config=unet.config)
-        
+        ema_unet.to('cpu', dtype=weight_dtype)
+
     weight_dtype = torch.float32
     if accelerator.mixed_precision == "fp16":
         weight_dtype = torch.float16
