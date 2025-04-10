@@ -617,7 +617,7 @@ def main():
     unet.load_additional_layers(weight_dtype)
     
     denoise_encoder = copy.deepcopy(vae.encoder)
-    denoise_encoder.forward = denoise_encoder.forward_wo_post_process
+    # denoise_encoder.forward = denoise_encoder.forward_wo_post_process
     del denoise_encoder.conv_norm_out
     del denoise_encoder.conv_out
     del denoise_encoder.conv_act
