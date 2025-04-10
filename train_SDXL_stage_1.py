@@ -617,7 +617,7 @@ def main():
     unet.load_additional_layers(weight_dtype)
     
     denoise_encoder = copy.deepcopy(vae.encoder)
-    denoise_encoder.forward = denoise_encoder.forward_wo_post_process
+    # denoise_encoder.forward = denoise_encoder.forward_wo_post_process
     del denoise_encoder.conv_norm_out
     del denoise_encoder.conv_out
     del denoise_encoder.conv_act
@@ -625,10 +625,7 @@ def main():
     del denoise_encoder
     
     unet.train() # If you GPU memory is limited, you can set it to unet.requires_grad_(False)
-
     '''
-    # If you GPU memory is limited, you can set it to unet.train()
-
     unet.requires_grad_(False)
     for param in unet.condition_embedding.parameters():
         param.requires_grad = True
