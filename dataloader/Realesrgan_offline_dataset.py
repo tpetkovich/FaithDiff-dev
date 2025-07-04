@@ -140,8 +140,10 @@ class LocalImageDataset(data.Dataset):
         print(self.data_lens)
     def __getitem__(self, index):
 
-        data_type = random.choices(self.data_types, self.data_prob)[0]
-        index = np.random.randint(self.data_lens[data_type])
+        rng = np.random.default_rng(index)
+        data_type = rng.choice(self.data_types, p=self.data_prob)
+        index = rng.integers(0, self.data_lens[data_type])
+
         crop_pad_size = self.crop_size
         # load image
         img_path = self.data_collection[data_type][0][index]
