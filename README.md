@@ -6,7 +6,8 @@
 > [Junyang Chen](https://jychen9811.github.io/), [Jinshan Pan](https://jspan.github.io/), [Jiangxin Dong](https://scholar.google.com/citations?user=ruebFVEAAAAJ&hl=zh-CN&oi=ao) <br>
 > [IMAG Lab](https://imag-njust.net/), Nanjing University of Science and Technology
 
-> If FaithDiff is helpful for you, please help star the GitHub Repo. Thanks! 
+> If FaithDiff is helpful for you, please help star the GitHub Repo. Thanks!
+> Welcome to visit our website (专注底层视觉领域的信息服务平台) for low-level vision: [https://lowlevelcv.com/](https://lowlevelcv.com/)
 ---
 
 ### 🚩 **New Features/Updates**
