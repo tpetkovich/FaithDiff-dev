@@ -58,6 +58,8 @@ from FaithDiff.pipelines.pipeline_FaithDiff_tlc import FaithDiffStableDiffusionX
 from FaithDiff.models.unet_2d_condition_vae_extension import UNet2DConditionModel
 from FaithDiff.training_utils import EMAModel
 
+from torch.utils.data.distributed import DistributedSampler
+
 # cpu_num = 4
 # os.environ ['OMP_NUM_THREADS'] = str(cpu_num)
 # os.environ ['OPENBLAS_NUM_THREADS'] = str(cpu_num)
@@ -749,12 +751,11 @@ def main():
 
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
-        shuffle=True,
+        sampler=DistributedSampler(train_dataset, shuffle=True),
         collate_fn=collate_fn,
         batch_size=args.train_batch_size,
         num_workers=4,
         pin_memory=True,
-
     )
     
     def unwrap_model(model):
