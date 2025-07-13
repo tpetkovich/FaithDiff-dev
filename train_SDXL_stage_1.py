@@ -57,6 +57,9 @@ from dataloader.Realesrgan_offline_dataset import LocalImageDataset
 from FaithDiff.pipelines.pipeline_FaithDiff_tlc import FaithDiffStableDiffusionXLPipeline
 from FaithDiff.models.unet_2d_condition_vae_extension import UNet2DConditionModel
 from FaithDiff.training_utils import EMAModel
+
+from torch.utils.data.distributed import DistributedSampler
+
 # cpu_num = 4
 # os.environ ['OMP_NUM_THREADS'] = str(cpu_num)
 # os.environ ['OPENBLAS_NUM_THREADS'] = str(cpu_num)
@@ -726,14 +729,14 @@ def main():
     
     train_dataset = LocalImageDataset(img_file=[img_file_path, lq_img_file_path, text_file_path], face_file = [face_file_path, face_lq_file_path, face_text_file_path], yml_kernel=yml_kernel, image_size=args.resolution, tokenizer=tokenizer, tokenizer_2 = tokenizer_2, t_drop_rate=0.2)
 
+    
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
-        shuffle=True,
+        sampler=DistributedSampler(train_dataset, shuffle=True),
         collate_fn=collate_fn,
         batch_size=args.train_batch_size,
         num_workers=4,
         pin_memory=True,
-
     )
     
     def unwrap_model(model):
