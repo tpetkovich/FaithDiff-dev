@@ -138,11 +138,15 @@ class LocalImageDataset(data.Dataset):
         print(self.data_lens)
         self.data_lens = {'nature': len(nature_lr_paths), 'face': len(lq_face_paths)}
         print(self.data_lens)
+
+        self.datatypes_lens = [len(nature_paths), len(face_paths)]
+        self.cumulative_lens = np.cumsum([0] + self.datatypes_lens)
     def __getitem__(self, index):
 
-        rng = np.random.default_rng(index)
-        data_type = rng.choice(self.data_types, p=self.data_prob)
-        index = rng.integers(0, self.data_lens[data_type])
+        data_type_idx = np.where(self.cumulative_lens <= index )[0][-1]
+
+        data_type = self.data_types[data_type_idx]
+        index = index - self.cumulative_lens[data_type_idx]
 
         crop_pad_size = self.crop_size
         # load image
