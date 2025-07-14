@@ -1,4 +1,5 @@
 from utils.system import quantize_8bit
+from huggingface_hub import hf_hub_download
 from .pipelines.pipeline_FaithDiff_tlc import FaithDiffStableDiffusionXLPipeline
 import torch
 from diffusers import AutoencoderKL
@@ -11,7 +12,10 @@ def FaithDiff_pipeline(sdxl_path, VAE_FP16_path, FaithDiff_path, use_fp8 = False
     dtype = torch.float16
     vae = AutoencoderKL.from_pretrained(VAE_FP16_path).to(dtype=dtype)
     unet = UNet2DConditionModel.from_pretrained(sdxl_path, subfolder="unet", variant="fp16")
-    unet.load_additional_layers(weight_path=FaithDiff_path, dtype=dtype)    
+
+    model_file = hf_hub_download(FaithDiff_path, filename="FaithDiff.bin")
+    print(model_file)
+    unet.load_additional_layers(weight_path=model_file, dtype=dtype)    
     if use_fp8:
         quantize_8bit(unet)
     else:

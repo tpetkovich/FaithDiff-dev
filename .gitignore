@@ -10,6 +10,7 @@ checkpoints/
 /.vs
 .vscode/
 .idea/
+.conda/
 venv/
 .venv/
 *.log
